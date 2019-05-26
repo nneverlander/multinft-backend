@@ -73,21 +73,20 @@ async function addToFirebase() {
 app.get("/", async function(req, res) {
     // let result = await addToFirebase();
     // res.send(result);
-    try {
-        let result = await multiNFTInstance.createType("ma2s1avav", "mv2saa1v", "vv");
-        res.send(result);
-    } catch (err) {
-        console.log(err);
-    }
 
 });
 
 app.post("/create", async function(req, res) {
+    // check name, symbol already exist
+    // add to firebase
+    // run eth txn in bg
+    // once result arrives, update firebase or retry if failed
     try {
-        let result = await multiNFTInstance.createType("ma2s1avv", "mv2sa1v", "vv");
+        let result = await multiNFTInstance.webCreateType(req.body.name, req.body.symbol, req.body.uri, req.body.owner);
         console.log(result);
+        res.send(result);
     } catch (err) {
-        console.log(err);
+        console.log('Create type failed', err);
     }
 });
 

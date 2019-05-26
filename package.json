@@ -18,10 +18,10 @@
   },
   "homepage": "https://github.com/nevverlander/multinft-backend#readme",
   "dependencies": {
-    "dotenv": "^8.0.0",
-    "express": "^4.16.4",
-    "firebase-admin": "^8.0.0",
-    "truffle-contract": "^4.0.17",
-    "truffle-hdwallet-provider": "^1.0.9"
+    "dotenv": "8.0.0",
+    "express": "4.16.4",
+    "firebase-admin": "8.0.0",
+    "truffle-contract": "4.0.17",
+    "truffle-hdwallet-provider": "1.0.9"
   }
 }
