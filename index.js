@@ -96,7 +96,7 @@ app.post("/create", async function(req, res) {
             res.send(result);
         }).catch(err => {
             console.log("Create type txn failed", err);
-            res.status(500).send("Ethereum txn failed");
+            res.status(500).send("Ethereum create type txn failed");
         });
     } catch (err) {
         console.log('Create type failed', err);
@@ -104,7 +104,32 @@ app.post("/create", async function(req, res) {
 });
 
 app.post("/mint", async function(req, res) {
-    
+    try {
+        multiNFTInstance.webMint(req.body.name, req.body.uri, req.body.count, req.body.owner).then(result => {
+            console.log(result);
+            // add to firebase
+            if (result && result.receipt) {
+                let data = {
+                    name: req.body.name,
+                    count: req.body.count,
+                    uri: req.body.uri,
+                    owner: req.body.owner,
+                    txn: result.receipt.transactionHash
+                }
+                db.collection("mints" + rootRefSuffix).add(data).then(ref => {
+                    console.log("Added mints to firestore with id: ", ref.id);
+                });
+            } else {
+                console.log("Mints not added to firestore");
+            }
+            res.send(result);
+        }).catch(err => {
+            console.log("Mint txn failed", err);
+            res.status(500).send("Ethereum mint txn failed");
+        });
+    } catch (err) {
+        console.log('Mint failed', err);
+    }
 });
 
 app.post("/transfer", async function(req, res) {
