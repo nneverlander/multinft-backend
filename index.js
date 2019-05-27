@@ -61,9 +61,7 @@ async function init() {
 }
 
 app.get("/", async function(req, res) {
-    // let result = await addToFirebase();
-    // res.send(result);
-
+    res.send("Hello");
 });
 
 app.post("/create", async function(req, res) {
