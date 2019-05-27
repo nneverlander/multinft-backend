@@ -153,7 +153,31 @@ app.post("/mint", async function(req, res) {
 });
 
 app.post("/transfer", async function(req, res) {
-    
+    try {
+        multiNFTInstance.webTransfer(req.body.to, req.body.tokenId, req.body.owner).then(result => {
+            console.log(result);
+            // add to firebase
+            if (result && result.receipt) {
+                let data = {
+                    tokenId: req.body.tokenId,
+                    to: req.body.to,
+                    owner: req.body.owner,
+                    txn: result.receipt.transactionHash
+                }
+                db.collection("tokenTransfers" + rootRefSuffix).add(data).then(ref => {
+                    console.log("Added token transfer to firestore with id: ", ref.id);
+                });
+            } else {
+                console.log("Token transfer not added to firestore");
+            }
+            res.send(result);
+        }).catch(err => {
+            console.log("Token transfer txn failed", err);
+            res.status(500).send("Ethereum token transfer txn failed");
+        });
+    } catch (err) {
+        console.log('Mint failed', err);
+    }
 });
 
 app.post("/claim", async function(req, res) {
