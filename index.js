@@ -56,6 +56,7 @@ async function init() {
         gas: gasLimit,
         value: 0
     })
+    MultiNFT.numberFormat = "String";
 
     multiNFTInstance = await MultiNFT.at(contractAddress);
 }
@@ -79,10 +80,19 @@ app.post("/create", async function(req, res) {
         multiNFTInstance.webCreateType(req.body.name, req.body.symbol, req.body.uri, req.body.owner).then(result => {
             console.log(result);
             // add to firebase
-            if (result && result.receipt) {
+            if (result && result.receipt && result.logs) {
+                let createLog;
+                for (var i = 0; i < result.logs.length; i++) {
+                    let log = result.logs[i];
+                    if (log.event == "WebCreateType") {
+                        createLog = log;
+                        break;
+                    }
+                }
                 let data = {
                     name: req.body.name,
                     symbol: req.body.symbol,
+                    type: createLog.args.tokenType,
                     uri: req.body.uri,
                     owner: req.body.owner,
                     txn: result.receipt.transactionHash
@@ -108,9 +118,19 @@ app.post("/mint", async function(req, res) {
         multiNFTInstance.webMint(req.body.name, req.body.uri, req.body.count, req.body.owner).then(result => {
             console.log(result);
             // add to firebase
-            if (result && result.receipt) {
+            if (result && result.receipt && result.logs) {
+                let mintLog;
+                for (var i = 0; i < result.logs.length; i++) {
+                    let log = result.logs[i];
+                    if (log.event == "WebMint") {
+                        mintLog = log;
+                        break;
+                    }
+                }
                 let data = {
                     name: req.body.name,
+                    type: mintLog.args.tokenType,
+                    tokenIds: mintLog.args.tokenIds,
                     count: req.body.count,
                     uri: req.body.uri,
                     owner: req.body.owner,
@@ -141,9 +161,18 @@ app.post("/claim", async function(req, res) {
         multiNFTInstance.webClaimType(req.body.name, req.body.oldOwner, req.body.newOwner).then(result => {
             console.log(result);
             // add to firebase
-            if (result && result.receipt) {
+            if (result && result.receipt && result.logs) {
+                let claimLog;
+                for (var i = 0; i < result.logs.length; i++) {
+                    let log = result.logs[i];
+                    if (log.event == "WebClaimType") {
+                        claimLog = log;
+                        break;
+                    }
+                }
                 let data = {
                     name: req.body.name,
+                    type: claimLog.args.tokenType,
                     newOwner: req.body.newOwner,
                     oldOwner: req.body.oldOwner,
                     txn: result.receipt.transactionHash
