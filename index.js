@@ -164,8 +164,32 @@ app.post("/claim", async function(req, res) {
     }
 });
 
-app.post("/setUri", async function(req, res) {
-    
+app.post("/seturi", async function(req, res) {
+    try {
+        multiNFTInstance.webSetTokenURI(req.body.tokenId, req.body.uri, req.body.owner).then(result => {
+            console.log(result);
+            // add to firebase
+            if (result && result.receipt) {
+                let data = {
+                    tokenId: req.body.tokenId,
+                    uri: req.body.uri,
+                    owner: req.body.owner,
+                    txn: result.receipt.transactionHash
+                }
+                db.collection("tokenUriChanges" + rootRefSuffix).add(data).then(ref => {
+                    console.log("Added token uri change to firestore with id: ", ref.id);
+                });
+            } else {
+                console.log("Token uri change not added to firestore");
+            }
+            res.send(result);
+        }).catch(err => {
+            console.log("Token uri change txn failed", err);
+            res.status(500).send("Ethereum token uri change txn failed");
+        });
+    } catch (err) {
+        console.log('Mint failed', err);
+    }
 });
 
 app.listen(port, () => console.log("Listening on port " + port));
