@@ -26,6 +26,7 @@ async function init() {
     let privKey = process.env.PRIV_KEY;
     let fromAddress = process.env.FROM_ADDRESS;
     let gasLimit = process.env.GAS_LIMIT;
+    let gasPrice = process.env.GAS_PRICE_WEI;
 
     let currentConfig = await configRef.doc("current").get();
     let version = currentConfig.data().version;
@@ -47,6 +48,9 @@ async function init() {
     if (!gasLimit) {
         gasLimit = configData.GAS_LIMIT;
     }
+    if (!gasPrice) {
+        gasPrice = configData.GAS_PRICE_WEI;
+    }
 
     let web3Provider = new HDWalletProvider(privKey, provider);
 
@@ -54,6 +58,7 @@ async function init() {
     MultiNFT.defaults({
         from: fromAddress,
         gas: gasLimit,
+        gasPrice: gasPrice,
         value: 0
     })
     MultiNFT.numberFormat = "String";
