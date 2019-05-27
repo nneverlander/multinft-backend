@@ -137,7 +137,31 @@ app.post("/transfer", async function(req, res) {
 });
 
 app.post("/claim", async function(req, res) {
-    
+    try {
+        multiNFTInstance.webClaimType(req.body.name, req.body.oldOwner, req.body.newOwner).then(result => {
+            console.log(result);
+            // add to firebase
+            if (result && result.receipt) {
+                let data = {
+                    name: req.body.name,
+                    newOwner: req.body.newOwner,
+                    oldOwner: req.body.oldOwner,
+                    txn: result.receipt.transactionHash
+                }
+                db.collection("typeClaims" + rootRefSuffix).add(data).then(ref => {
+                    console.log("Added claim to firestore with id: ", ref.id);
+                });
+            } else {
+                console.log("Claim not added to firestore");
+            }
+            res.send(result);
+        }).catch(err => {
+            console.log("Claim txn failed", err);
+            res.status(500).send("Ethereum claim txn failed");
+        });
+    } catch (err) {
+        console.log('Mint failed', err);
+    }
 });
 
 app.post("/setUri", async function(req, res) {
