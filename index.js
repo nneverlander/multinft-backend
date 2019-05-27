@@ -8,8 +8,7 @@ const firebase = require("firebase-admin");
 firebase.initializeApp();
 const db = firebase.firestore();
 const configRef = db.collection("config");
-const firestoreRootRef = process.env.FIRESTORE_ROOT_REF || "prod";
-const rootRef = db.collection(firestoreRootRef);
+const rootRefSuffix = process.env.FIRESTORE_ROOT_REF_SUFFIX || "-prod";
 
 const HDWalletProvider = require("truffle-hdwallet-provider");
 const truffleContract = require("truffle-contract");
@@ -61,15 +60,6 @@ async function init() {
     multiNFTInstance = await MultiNFT.at(contractAddress);
 }
 
-async function addToFirebase() {
-    let data = {
-        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-    };
-    let result = await rootRef.add(data);
-    return result;
-}
-
 app.get("/", async function(req, res) {
     // let result = await addToFirebase();
     // res.send(result);
@@ -77,14 +67,39 @@ app.get("/", async function(req, res) {
 });
 
 app.post("/create", async function(req, res) {
-    // check name, symbol already exist
-    // add to firebase
-    // run eth txn in bg
-    // once result arrives, update firebase or retry if failed
     try {
-        let result = await multiNFTInstance.webCreateType(req.body.name, req.body.symbol, req.body.uri, req.body.owner);
-        console.log(result);
-        res.send(result);
+        let nameExists = await multiNFTInstance.nameExists(req.body.name);
+        if (nameExists) {
+            res.send("Name already exists");
+            return;
+        }
+        let symbolExists = await multiNFTInstance.symbolExists(req.body.symbol);
+        if (symbolExists) {
+            res.send("Symbol already exists");
+            return;
+        }
+        multiNFTInstance.webCreateType(req.body.name, req.body.symbol, req.body.uri, req.body.owner).then(result => {
+            console.log(result);
+            // add to firebase
+            if (result && result.receipt) {
+                let data = {
+                    name: req.body.name,
+                    symbol: req.body.symbol,
+                    uri: req.body.uri,
+                    owner: req.body.owner,
+                    txn: result.receipt.transactionHash
+                }
+                db.collection("types" + rootRefSuffix).add(data).then(ref => {
+                    console.log("Added type to firestore with id: ", ref.id);
+                });
+            } else {
+                console.log("Type not added to firestore");
+            }
+            res.send(result);
+        }).catch(err => {
+            console.log("Create type txn failed", err);
+            res.status(500).send("Ethereum txn failed");
+        });
     } catch (err) {
         console.log('Create type failed', err);
     }
