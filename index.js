@@ -109,6 +109,73 @@ function sendDummyTxn(slot, slotsUsed) {
     }
 }
 
+function prepareNonceSlot(txn) {
+    let nonce;
+    let slot;
+    if (slotsUsed > slots.length) {
+        console.log("All slots for address " + fromAddress + " are currently full. Cannot execute " + txn + " at this moment. Try again later");
+        return;
+    } else {
+        slot = getSlot();
+        nonce = lowestNonce + slot;
+        slots[slot] = 1;
+        slotsUsed++;
+    }
+    console.log("For " + txn + ", using nonce " + nonce + ", from address: " + fromAddress + ", slot " + slot + ". Slots used so far: " + slotsUsed);
+    return [nonce, slot];
+}
+
+function updateNonceSlot(nonce, slot, txn) {
+    ++nonce;
+    let newData = {
+        lastUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    }
+    // possible when there are concurrent txns
+    if (nonce > lowestNonce) {
+        lowestNonce = nonce;
+        newData.nonce = nonce;
+    }
+    slots[slot] = 0;
+    slotsUsed--;
+
+    // update firebase
+    db.collection("accounts" + rootRefSuffix).doc(fromAddress).set(newData, {merge: true}).then(result => {
+        console.log("Updated firebase doc " + fromAddress + " after " + txn + " execution with data: " + JSON.stringify(newData));
+    }).catch(err => {
+        console.log("Updating firebase after " + txn + " execution failed ", err);
+    })
+}
+
+function handleTxnErr(err, txn, nonce, slot) {
+    //todo: fix this hack parsing
+    let message = "Message: " + err;
+    // txn has been mined and hence nonce is incremented
+    if (message.includes("transactionHash")) {
+        nonce++;
+    } else {
+        // since this txn failed, see if this slot needs to be filled
+        // need to call this only when nonce is not mined
+        sendDummyTxn(slot, slotsUsed);
+    }
+
+    let newData = {
+        lastUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    }
+    // possible when there are concurrent txns
+    if (nonce > lowestNonce) {
+        lowestNonce = nonce;
+        newData.nonce = nonce;
+    }
+    slots[slot] = 0;
+    slotsUsed--;
+
+    db.collection("accounts" + rootRefSuffix).doc(fromAddress).set(newData, {merge: true}).then(result => {
+        console.log("Firebase doc " + fromAddress + " updated after failed " + txn + " with data: " + JSON.stringify(newData));
+    }).catch(error => {
+        console.log("Updating firebase failed after failed " + txn, error);
+    })
+}
+
 app.get("/", async function(req, res) {
     res.send("Hello");
 });
@@ -144,41 +211,13 @@ app.post("/create", async function(req, res) {
             return;
         }
 
-        let nonce;
-        let slot;
-        if (slotsUsed > slots.length) {
-            console.log("All slots for address " + fromAddress + " are currently full. Cannot execute txn at this moment. Try again later");
-            return;
-        } else {
-            slot = getSlot();
-            nonce = lowestNonce + slot;
-            slots[slot] = 1;
-            slotsUsed++;
-        }
-
-        console.log("Using nonce " + nonce + ", from address: " + fromAddress + ", slot " + slot + ". Slots used so far: " + slotsUsed);
+        let nonceSlot = prepareNonceSlot("webCreateType");
+        let nonce = nonceSlot[0];
+        let slot = nonceSlot[1];
 
         multiNFTInstance.webCreateType(req.body.name, req.body.symbol, req.body.uri, req.body.owner, {nonce: nonce, from: fromAddress}).then(result => {
             console.log(result);
-            ++nonce;
-            let newData = {
-                lastUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            }
-            // possible when there are concurrent txns
-            if (nonce > lowestNonce) {
-                lowestNonce = nonce;
-                newData.nonce = nonce;
-            }
-            slots[slot] = 0;
-            slotsUsed--;
-            newData.slotsUsed = slotsUsed;
-
-            // update firebase
-            db.collection("accounts" + rootRefSuffix).doc(fromAddress).set(newData, {merge: true}).then(nonceUpdate => {
-                console.log("Updated firebase doc " + fromAddress + " after txn execution with data: " + JSON.stringify(newData));
-            }).catch(err => {
-                console.log("Updating firebase after txn execution failed ", err);
-            })
+            updateNonceSlot(nonce, slot, "webCreateType");
 
             // add result to firebase
             if (result && result.receipt && result.logs) {
@@ -207,36 +246,7 @@ app.post("/create", async function(req, res) {
             res.send(result);
         }).catch(err => {
             console.log("Create type txn failed", err);
-            //todo: fix this hack parsing
-            let message = "Message: " + err;
-            // txn has been mined and hence nonce is incremented
-            if (message.includes("transactionHash")) {
-                nonce++;
-            }
-
-            let newData = {
-                lastUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            }
-            // possible when there are concurrent txns
-            if (nonce > lowestNonce) {
-                lowestNonce = nonce;
-                newData.nonce = nonce;
-            }
-            slots[slot] = 0;
-            slotsUsed--;
-            newData.slotsUsed = slotsUsed;
-            // since this txn failed, see if this slot needs to be filled
-            // need to call this only when nonce is not mined
-            if (!message.includes("transactionHash")) {
-                sendDummyTxn(slot, slotsUsed);
-            }
-
-            db.collection("accounts" + rootRefSuffix).doc(fromAddress).set(newData, {merge: true}).then(nonceUpdate => {
-                console.log("Firebase doc " + fromAddress + " updated after failed txn with data: " + JSON.stringify(newData));
-            }).catch(err => {
-                console.log("Updating firebase after failed txn failed ", err);
-            })
-
+            handleTxnErr(err, "webCreateType", nonce, slot);
             res.status(500).send("Create type txn may have failed");
         });
     } catch (err) {
@@ -246,8 +256,14 @@ app.post("/create", async function(req, res) {
 
 app.post("/mint", async function(req, res) {
     try {
-        multiNFTInstance.webMint(req.body.name, req.body.uri, req.body.count, req.body.owner).then(result => {
+        let nonceSlot = prepareNonceSlot("webMint");
+        let nonce = nonceSlot[0];
+        let slot = nonceSlot[1];
+
+        multiNFTInstance.webMint(req.body.name, req.body.uri, req.body.count, req.body.owner, {nonce: nonce, from: fromAddress}).then(result => {
             console.log(result);
+            updateNonceSlot(nonce, slot, "webMint");
+
             // add result to firebase
             if (result && result.receipt && result.logs) {
                 let mintLog;
@@ -276,6 +292,7 @@ app.post("/mint", async function(req, res) {
             res.send(result);
         }).catch(err => {
             console.log("Mint txn failed", err);
+            handleTxnErr(err, "webMint", nonce, slot);
             res.status(500).send("Mint may have failed");
         });
     } catch (err) {
@@ -285,8 +302,14 @@ app.post("/mint", async function(req, res) {
 
 app.post("/transfer", async function(req, res) {
     try {
-        multiNFTInstance.webTransfer(req.body.to, req.body.tokenId, req.body.owner).then(result => {
+        let nonceSlot = prepareNonceSlot("webTransfer");
+        let nonce = nonceSlot[0];
+        let slot = nonceSlot[1];
+
+        multiNFTInstance.webTransfer(req.body.to, req.body.tokenId, req.body.owner, {nonce: nonce, from: fromAddress}).then(result => {
             console.log(result);
+            updateNonceSlot(nonce, slot, "webTransfer");
+
             // add result to firebase
             if (result && result.receipt) {
                 let data = {
@@ -304,6 +327,7 @@ app.post("/transfer", async function(req, res) {
             res.send(result);
         }).catch(err => {
             console.log("Token transfer txn failed", err);
+            handleTxnErr(err, "webTransfer", nonce, slot);
             res.status(500).send("Token transfer txn may have failed");
         });
     } catch (err) {
@@ -313,8 +337,14 @@ app.post("/transfer", async function(req, res) {
 
 app.post("/claim", async function(req, res) {
     try {
-        multiNFTInstance.webClaimType(req.body.name, req.body.oldOwner, req.body.newOwner).then(result => {
+        let nonceSlot = prepareNonceSlot("webClaimType");
+        let nonce = nonceSlot[0];
+        let slot = nonceSlot[1];
+
+        multiNFTInstance.webClaimType(req.body.name, req.body.oldOwner, req.body.newOwner, {nonce: nonce, from: fromAddress}).then(result => {
             console.log(result);
+            updateNonceSlot(nonce, slot, "webClaimType");
+
             // add result to firebase
             if (result && result.receipt && result.logs) {
                 let claimLog;
@@ -341,6 +371,7 @@ app.post("/claim", async function(req, res) {
             res.send(result);
         }).catch(err => {
             console.log("Claim txn failed", err);
+            handleTxnErr(err, "webClaimType", nonce, slot);
             res.status(500).send("Claim txn may have failed");
         });
     } catch (err) {
@@ -350,8 +381,14 @@ app.post("/claim", async function(req, res) {
 
 app.post("/seturi", async function(req, res) {
     try {
-        multiNFTInstance.webSetTokenURI(req.body.tokenId, req.body.uri, req.body.owner).then(result => {
+        let nonceSlot = prepareNonceSlot("webSetUri");
+        let nonce = nonceSlot[0];
+        let slot = nonceSlot[1];
+
+        multiNFTInstance.webSetTokenURI(req.body.tokenId, req.body.uri, req.body.owner, {nonce: nonce, from: fromAddress}).then(result => {
             console.log(result);
+            updateNonceSlot(nonce, slot, "webSetUri");
+
             // add result to firebase
             if (result && result.receipt) {
                 let data = {
@@ -369,6 +406,7 @@ app.post("/seturi", async function(req, res) {
             res.send(result);
         }).catch(err => {
             console.log("Token uri change txn failed", err);
+            handleTxnErr(err, "webSetUri", nonce, slot);
             res.status(500).send("Token uri change txn may have failed");
         });
     } catch (err) {
