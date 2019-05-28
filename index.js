@@ -46,7 +46,6 @@ async function init() {
     let account = accounts.docs[0];
     let accountData = account.data();
     lowestNonce = accountData.nonce;
-    slotsUsed = accountData.slotsUsed;
 
     if (!privKey) {
         privKey = accountData.privKey;
@@ -81,19 +80,6 @@ async function init() {
     MultiNFT.numberFormat = "String";
 
     multiNFTInstance = await MultiNFT.at(contractAddress);
-
-    registerAccountListener();
-}
-
-function registerAccountListener() {
-    let account = db.collection("accounts" + rootRefSuffix).doc(fromAddress);
-    removeAccountListener = account.onSnapshot(doc => {
-        let changedNonce = doc.data().nonce;
-        if (changedNonce > lowestNonce) {
-            lowestNonce = changedNonce;
-            console.log("Lowest nonce updated to " + lowestNonce + " after listener reported a change");
-        }
-    });
 }
 
 function getSlot() {
@@ -107,7 +93,7 @@ function getSlot() {
 }
 
 function getNewFromAddress() {
-    let prom = db.collection("accounts" + rootRefSuffix).orderBy("slotsUsed", "asc").limit(1).get();
+    let prom = db.collection("accounts" + rootRefSuffix).orderBy("lastUpdatedAt", "asc").limit(1).get();
     return prom;
 }
 
@@ -125,45 +111,6 @@ function sendDummyTxn(slot, slotsUsed) {
 
 app.get("/", async function(req, res) {
     res.send("Hello");
-});
-
-app.get("/slotsused", async function(req, res) {
-    res.send("Slots used: " + slotsUsed);
-});
-
-app.post("/resetslotsfirebase", async function(req, res) {
-    // update firebase
-    let updateData = {
-        lastUpdatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-        slotsUsed: 0
-    };
-    db.collection("accounts" + rootRefSuffix).doc(fromAddress).set(updateData, {merge: true}).then(update => {
-        console.log("Updated firebase doc " + fromAddress + " during reset slots with data: " + JSON.stringify(updateData));
-        res.status(200).send("Resetting slots successful");
-    }).catch(err => {
-        console.log("Updating firebase during reset slots failed ", err);
-        res.status(500).send("Resetting slots failed");
-    })
-});
-
-app.post("/setslotsfirebase", async function(req, res) {
-    // update firebase
-    let updateData = {
-        lastUpdatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-        slotsUsed: slotsUsed
-    };
-    db.collection("accounts" + rootRefSuffix).doc(fromAddress).set(updateData, {merge: true}).then(update => {
-        console.log("Updated firebase doc " + fromAddress + " during set slots with data: " + JSON.stringify(updateData));
-        res.status(200).send("Setting slots successful");
-    }).catch(err => {
-        console.log("Updating firebase during set slots failed ", err);
-        res.status(500).send("Setting slots failed");
-    })
-});
-
-app.post("/removelistener", async function(req, res) {
-    removeAccountListener();
-    res.end();
 });
 
 app.post("/resetnonce", async function(req, res) {
@@ -197,72 +144,38 @@ app.post("/create", async function(req, res) {
             return;
         }
 
-        let from;
         let nonce;
-        let newAddressUsed = false;
         let slot;
-
         if (slotsUsed > slots.length) {
-            console.log("All slots for address " + fromAddress + " are currently full. Fetching a new address");
-            let snapshot = await getNewFromAddress();
-            let newAddress = snapshot.docs[0];
-            let newAddressData = newAddress.data();
-            let slotsFull = newAddressData.slotsUsed + 1;
-            if (slotsFull > slots.length) {
-                console.log("All slots in all available addresses are full. Cannot execute txn at this moment. Try again later")
-                return;
-            }
-            from = newAddress.id;
-            nonce = newAddressData.nonce;
-            newAddressUsed = true;
+            console.log("All slots for address " + fromAddress + " are currently full. Cannot execute txn at this moment. Try again later");
+            return;
         } else {
             slot = getSlot();
-            from = fromAddress;
             nonce = lowestNonce + slot;
             slots[slot] = 1;
             slotsUsed++;
-
-            console.log("Using slot " + slot + ", slots used as of now: " + slotsUsed);
-
-            let updateData = {
-                lastUpdatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                nonce: nonce,
-                slotsUsed: slotsUsed
-            };
-
-            // update firebase
-            db.collection("accounts" + rootRefSuffix).doc(from).set(updateData, {merge: true}).then(nonceUpdate => {
-                console.log("Updated firebase doc " + from + " before txn execution with data: " + JSON.stringify(updateData));
-            }).catch(err => {
-                console.log("Updating firebase before txn execution failed ", err);
-            })
         }
 
-        console.log("Using nonce " + nonce + " and from address: " + from);
+        console.log("Using nonce " + nonce + ", from address: " + fromAddress + ", slot " + slot + ". Slots used so far: " + slotsUsed);
 
-        multiNFTInstance.webCreateType(req.body.name, req.body.symbol, req.body.uri, req.body.owner, {nonce: nonce, from: from}).then(result => {
+        multiNFTInstance.webCreateType(req.body.name, req.body.symbol, req.body.uri, req.body.owner, {nonce: nonce, from: fromAddress}).then(result => {
             console.log(result);
-
             ++nonce;
             let newData = {
                 lastUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
             }
-            if (!newAddressUsed) {
-                // possible when there are concurrent txns
-                if (nonce > lowestNonce) {
-                    lowestNonce = nonce;
-                    newData.nonce = nonce;
-                }
-                slots[slot] = 0;
-                slotsUsed--;
-                newData.slotsUsed = slotsUsed;
-            } else {
+            // possible when there are concurrent txns
+            if (nonce > lowestNonce) {
+                lowestNonce = nonce;
                 newData.nonce = nonce;
             }
+            slots[slot] = 0;
+            slotsUsed--;
+            newData.slotsUsed = slotsUsed;
 
             // update firebase
-            db.collection("accounts" + rootRefSuffix).doc(from).set(newData, {merge: true}).then(nonceUpdate => {
-                console.log("Updated firebase doc " + from + " after txn execution with data: " + JSON.stringify(newData));
+            db.collection("accounts" + rootRefSuffix).doc(fromAddress).set(newData, {merge: true}).then(nonceUpdate => {
+                console.log("Updated firebase doc " + fromAddress + " after txn execution with data: " + JSON.stringify(newData));
             }).catch(err => {
                 console.log("Updating firebase after txn execution failed ", err);
             })
@@ -293,6 +206,7 @@ app.post("/create", async function(req, res) {
             }
             res.send(result);
         }).catch(err => {
+            console.log("Create type txn failed", err);
             //todo: fix this hack parsing
             let message = "Message: " + err;
             // txn has been mined and hence nonce is incremented
@@ -303,33 +217,27 @@ app.post("/create", async function(req, res) {
             let newData = {
                 lastUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
             }
-            if (!newAddressUsed) {
-                // possible when there are concurrent txns
-                if (nonce > lowestNonce) {
-                    lowestNonce = nonce;
-                    newData.nonce = nonce;
-                }
-                slots[slot] = 0;
-                slotsUsed--;
-                newData.slotsUsed = slotsUsed;
-                // since this txn failed, see if this slot needs to be filled
-                // need to call this only when nonce is not mined
-                if (!message.includes(transactionHash)) {
-                    sendDummyTxn(slot, slotsUsed);
-                }
-            } else {
+            // possible when there are concurrent txns
+            if (nonce > lowestNonce) {
+                lowestNonce = nonce;
                 newData.nonce = nonce;
             }
+            slots[slot] = 0;
+            slotsUsed--;
+            newData.slotsUsed = slotsUsed;
+            // since this txn failed, see if this slot needs to be filled
+            // need to call this only when nonce is not mined
+            if (!message.includes("transactionHash")) {
+                sendDummyTxn(slot, slotsUsed);
+            }
 
-            db.collection("accounts" + rootRefSuffix).doc(from).set(newData, {merge: true}).then(nonceUpdate => {
-                console.log("Firebase doc " + from + " updated after failed txn with data: " + JSON.stringify(newData));
+            db.collection("accounts" + rootRefSuffix).doc(fromAddress).set(newData, {merge: true}).then(nonceUpdate => {
+                console.log("Firebase doc " + fromAddress + " updated after failed txn with data: " + JSON.stringify(newData));
             }).catch(err => {
                 console.log("Updating firebase after failed txn failed ", err);
             })
 
-            console.log("Create type txn failed", err);
             res.status(500).send("Create type txn may have failed");
-
         });
     } catch (err) {
         console.log('Create type failed', err);
