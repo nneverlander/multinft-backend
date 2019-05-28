@@ -22,6 +22,7 @@
     "express": "4.16.4",
     "firebase-admin": "8.0.0",
     "truffle-contract": "4.0.17",
-    "truffle-hdwallet-provider": "1.0.9"
+    "truffle-hdwallet-provider": "1.0.9",
+    "web3": "^1.0.0-beta.55"
   }
 }
