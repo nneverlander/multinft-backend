@@ -26,6 +26,8 @@ let lowestNonce = 0;
 // indicates the number of slots full
 let slotsUsed = 0;
 
+let lastUpdatedFireStoreNonce = 0;
+
 const port = process.env.PORT || 3000;
 
 init();
@@ -78,8 +80,10 @@ async function init() {
         value: 0
     })
     MultiNFT.numberFormat = "String";
-
     multiNFTInstance = await MultiNFT.at(contractAddress);
+
+    // update firestore nonce every 10 seconds
+    setInterval(updateFirestoreNonce, 10*1000);
 }
 
 function getSlot() {
@@ -97,15 +101,28 @@ function getNewFromAddress() {
     return prom;
 }
 
-function sendDummyTxn(slot, slotsUsed) {
+function sendDummyTxn(slot) {
     // send a dummy txn to fill up the freed slot so that any txns with higher nonces can proceed
     // this condition means there is a "gap" in the array
     // without this gap being filled, txns with higher nonces will not complete
     // so send a dummy txn with nonce corresponding to this slot
     if (slotsUsed > slot) {
-        console.log("Sending dummy txn to have nonce gap filled");
         let nonce = lowestNonce + slot;
-        multiNFTInstance.sendTransaction({from: fromAddress, nonce: nonce, value: 0});
+        console.log("Sending dummy txn to have nonce gap filled with nonce " + nonce + " in slot " + slot + " when lowestNonce is " + lowestNonce);
+        multiNFTInstance.sendTransaction({from: fromAddress, nonce: nonce, value: 0}).then(result => {
+            console.log("Dummy txn with nonce " + nonce + " succeeded when lowestNonce is " + lowestNonce);
+            lowestNonce++;
+            slots[slot] = 0;
+            slotsUsed--;
+        }).catch(err => {
+            //reset program nonce to account nonce
+            console.log("Dummy txn with nonce " + " failed when lowestNonce is " + lowestNonce);
+            slots[slot] = 0;
+            slotsUsed--;
+        });
+    } else {
+        slots[slot] = 0;
+        slotsUsed--;
     }
 }
 
@@ -125,63 +142,65 @@ function prepareNonceSlot(txn) {
     return [nonce, slot];
 }
 
-function updateNonceSlot(nonce, slot, txn) {
-    ++nonce;
+// currently called periodically
+function updateFirestoreNonce() {
+    if (lastUpdatedFireStoreNonce == lowestNonce) {
+        // no change
+        return;
+    }
+    lastUpdatedFireStoreNonce = lowestNonce;
     let newData = {
-        lastUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        lastUpdatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        nonce: lowestNonce
     }
-    // possible when there are concurrent txns
-    if (nonce > lowestNonce) {
-        lowestNonce = nonce;
-        newData.nonce = nonce;
-    }
-    slots[slot] = 0;
-    slotsUsed--;
-
-    // update firebase
     db.collection("accounts" + rootRefSuffix).doc(fromAddress).set(newData, {merge: true}).then(result => {
-        console.log("Updated firebase doc " + fromAddress + " after " + txn + " execution with data: " + JSON.stringify(newData));
+        console.log("Updated firebase doc " + fromAddress + " with data: " + JSON.stringify(newData));
     }).catch(err => {
-        console.log("Updating firebase after " + txn + " execution failed ", err);
+        console.log("Updating firebase failed ", err);
     })
 }
 
-function handleTxnErr(err, txn, nonce, slot) {
+function updateNonceSlot(slot, txn) {
+    lowestNonce++;
+    slots[slot] = 0;
+    slotsUsed--;
+}
+
+function handleTxnErr(err, txn, slot) {
     //todo: fix this hack parsing
     let message = "Message: " + err;
     // txn has been mined and hence nonce is incremented
     if (message.includes("transactionHash")) {
-        nonce++;
+        lowestNonce++;
+        slots[slot] = 0;
+        slotsUsed--;
     } else {
         // since this txn failed, see if this slot needs to be filled
         // need to call this only when nonce is not mined
-        sendDummyTxn(slot, slotsUsed);
+        sendDummyTxn(slot);
     }
-
-    let newData = {
-        lastUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
-    }
-    // possible when there are concurrent txns
-    if (nonce > lowestNonce) {
-        lowestNonce = nonce;
-        newData.nonce = nonce;
-    }
-    slots[slot] = 0;
-    slotsUsed--;
-
-    db.collection("accounts" + rootRefSuffix).doc(fromAddress).set(newData, {merge: true}).then(result => {
-        console.log("Firebase doc " + fromAddress + " updated after failed " + txn + " with data: " + JSON.stringify(newData));
-    }).catch(error => {
-        console.log("Updating firebase failed after failed " + txn, error);
-    })
 }
 
 app.get("/", async function(req, res) {
     res.send("Hello");
 });
 
+app.get("/slotsused", async function(req, res) {
+    res.send("Slots used: " + slotsUsed);
+});
+
+app.get("/nonce", async function(req, res) {
+    web3js.eth.getTransactionCount(fromAddress, "pending").then(count => {
+        res.send("Program nonce: " + lowestNonce + ", account nonce: " + count);
+    }).catch(error => {
+        console.log("Error while getting nonce ", error);
+        res.status(500).send("Error occured while getting nonce");
+    });
+});
+
 app.post("/resetnonce", async function(req, res) {
     web3js.eth.getTransactionCount(fromAddress, "pending").then(count => {
+        console.log("Resetting program nonce " + lowestNonce + " to account nonce " + count);
         lowestNonce = count;
         // update firebase
         let updateData = {
@@ -190,7 +209,7 @@ app.post("/resetnonce", async function(req, res) {
         };
         db.collection("accounts" + rootRefSuffix).doc(fromAddress).set(updateData, {merge: true}).then(nonceUpdate => {
             console.log("Updated firebase doc " + fromAddress + " during reset nonce with data: " + JSON.stringify(updateData));
-            res.status(200).send("Nonce reset");
+            res.status(200).send("Nonce reset to " + lowestNonce);
         }).catch(err => {
             console.log("Updating firebase during reset nonce failed ", err);
             res.status(500).send("Nonce reset failed");
@@ -217,7 +236,7 @@ app.post("/create", async function(req, res) {
 
         multiNFTInstance.webCreateType(req.body.name, req.body.symbol, req.body.uri, req.body.owner, {nonce: nonce, from: fromAddress}).then(result => {
             console.log(result);
-            updateNonceSlot(nonce, slot, "webCreateType");
+            updateNonceSlot(slot, "webCreateType");
 
             // add result to firebase
             if (result && result.receipt && result.logs) {
@@ -238,19 +257,19 @@ app.post("/create", async function(req, res) {
                     txn: result.receipt.transactionHash
                 }
                 db.collection("types" + rootRefSuffix).add(data).then(ref => {
-                    console.log("Added type to firestore with id: ", ref.id);
+                    console.log("Added type " + req.body.name + " to firestore with id: ", ref.id);
                 });
             } else {
-                console.log("Type not added to firestore");
+                console.log("Type " + req.body.name + " not added to firestore");
             }
             res.send(result);
         }).catch(err => {
             console.log("Create type txn failed", err);
-            handleTxnErr(err, "webCreateType", nonce, slot);
+            handleTxnErr(err, "webCreateType", slot);
             res.status(500).send("Create type txn may have failed");
         });
     } catch (err) {
-        console.log('Create type failed', err);
+        console.log("Create type " + req.body.name + " failed", err);
     }
 });
 
@@ -262,7 +281,7 @@ app.post("/mint", async function(req, res) {
 
         multiNFTInstance.webMint(req.body.name, req.body.uri, req.body.count, req.body.owner, {nonce: nonce, from: fromAddress}).then(result => {
             console.log(result);
-            updateNonceSlot(nonce, slot, "webMint");
+            updateNonceSlot(slot, "webMint");
 
             // add result to firebase
             if (result && result.receipt && result.logs) {
@@ -284,19 +303,19 @@ app.post("/mint", async function(req, res) {
                     txn: result.receipt.transactionHash
                 }
                 db.collection("mints" + rootRefSuffix).add(data).then(ref => {
-                    console.log("Added mints to firestore with id: ", ref.id);
+                    console.log("Added " + req.body.count + " mints of type " + req.body.name + " to firestore with id: ", ref.id);
                 });
             } else {
-                console.log("Mints not added to firestore");
+                console.log("Mints of type " + req.body.name + " not added to firestore");
             }
             res.send(result);
         }).catch(err => {
             console.log("Mint txn failed", err);
-            handleTxnErr(err, "webMint", nonce, slot);
+            handleTxnErr(err, "webMint", slot);
             res.status(500).send("Mint may have failed");
         });
     } catch (err) {
-        console.log('Mint failed', err);
+        console.log("Minting of " + req.body.name + " failed", err);
     }
 });
 
@@ -308,7 +327,7 @@ app.post("/transfer", async function(req, res) {
 
         multiNFTInstance.webTransfer(req.body.to, req.body.tokenId, req.body.owner, {nonce: nonce, from: fromAddress}).then(result => {
             console.log(result);
-            updateNonceSlot(nonce, slot, "webTransfer");
+            updateNonceSlot(slot, "webTransfer");
 
             // add result to firebase
             if (result && result.receipt) {
@@ -327,11 +346,11 @@ app.post("/transfer", async function(req, res) {
             res.send(result);
         }).catch(err => {
             console.log("Token transfer txn failed", err);
-            handleTxnErr(err, "webTransfer", nonce, slot);
+            handleTxnErr(err, "webTransfer", slot);
             res.status(500).send("Token transfer txn may have failed");
         });
     } catch (err) {
-        console.log('Transfer failed', err);
+        console.log("Transfer failed", err);
     }
 });
 
@@ -343,7 +362,7 @@ app.post("/claim", async function(req, res) {
 
         multiNFTInstance.webClaimType(req.body.name, req.body.oldOwner, req.body.newOwner, {nonce: nonce, from: fromAddress}).then(result => {
             console.log(result);
-            updateNonceSlot(nonce, slot, "webClaimType");
+            updateNonceSlot(slot, "webClaimType");
 
             // add result to firebase
             if (result && result.receipt && result.logs) {
@@ -371,7 +390,7 @@ app.post("/claim", async function(req, res) {
             res.send(result);
         }).catch(err => {
             console.log("Claim txn failed", err);
-            handleTxnErr(err, "webClaimType", nonce, slot);
+            handleTxnErr(err, "webClaimType", slot);
             res.status(500).send("Claim txn may have failed");
         });
     } catch (err) {
@@ -387,7 +406,7 @@ app.post("/seturi", async function(req, res) {
 
         multiNFTInstance.webSetTokenURI(req.body.tokenId, req.body.uri, req.body.owner, {nonce: nonce, from: fromAddress}).then(result => {
             console.log(result);
-            updateNonceSlot(nonce, slot, "webSetUri");
+            updateNonceSlot(slot, "webSetUri");
 
             // add result to firebase
             if (result && result.receipt) {
@@ -406,7 +425,7 @@ app.post("/seturi", async function(req, res) {
             res.send(result);
         }).catch(err => {
             console.log("Token uri change txn failed", err);
-            handleTxnErr(err, "webSetUri", nonce, slot);
+            handleTxnErr(err, "webSetUri", slot);
             res.status(500).send("Token uri change txn may have failed");
         });
     } catch (err) {
