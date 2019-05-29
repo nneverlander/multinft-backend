@@ -7,7 +7,7 @@ app.use(express.json());
 const firebase = require("firebase-admin");
 firebase.initializeApp();
 const db = firebase.firestore();
-const rootRefSuffix = process.env.FIRESTORE_ROOT_REF_SUFFIX || "-prod";
+let rootRefSuffix = process.env.rootRefSuffix;
 
 const HDWalletProvider = require("truffle-hdwallet-provider");
 const web3 = require("web3");
@@ -33,16 +33,20 @@ const port = process.env.PORT || 3000;
 init();
 
 async function init() {
-    let provider = process.env.WEB3_PROVIDER;
-    let contractAddress = process.env.MULTINFT_CONTRACT_ADDR;
-    let privKey = process.env.PRIV_KEY;
-    let gasLimit = process.env.GAS_LIMIT;
-    let gasPrice = process.env.GAS_PRICE_WEI;
+    let provider = process.env.web3Provider;
+    let contractAddress = process.env.multiNFTContractAddress;
+    let privKey = process.env.privKey;
+    let gasLimit = process.env.gasLimit;
+    let gasPrice = process.env.gasPriceWei;
 
     let currentConfig = await db.collection("config").doc("current").get();
     let version = currentConfig.data().version;
     let config = await db.collection("config").doc(version).get();
     let configData =config.data();
+
+    if (!rootRefSuffix) {
+        rootRefSuffix = configData.rootRefSuffix;
+    }
 
     let accounts = await getNewFromAddress();
     let account = accounts.docs[0];
@@ -343,7 +347,7 @@ app.post("/transfer", async function(req, res) {
                     owner: req.body.owner,
                     txn: result.receipt.transactionHash
                 }
-                db.collection("tokenTransfers" + rootRefSuffix).add(data).then(ref => {
+                db.collection("transfers" + rootRefSuffix).add(data).then(ref => {
                     console.log("Added token transfer to firestore with id: ", ref.id);
                 });
             } else {
@@ -387,7 +391,7 @@ app.post("/claim", async function(req, res) {
                     oldOwner: req.body.oldOwner,
                     txn: result.receipt.transactionHash
                 }
-                db.collection("typeClaims" + rootRefSuffix).add(data).then(ref => {
+                db.collection("claims" + rootRefSuffix).add(data).then(ref => {
                     console.log("Added claim to firestore with id: ", ref.id);
                 });
             } else {
@@ -422,7 +426,7 @@ app.post("/seturi", async function(req, res) {
                     owner: req.body.owner,
                     txn: result.receipt.transactionHash
                 }
-                db.collection("tokenUriChanges" + rootRefSuffix).add(data).then(ref => {
+                db.collection("uriChanges" + rootRefSuffix).add(data).then(ref => {
                     console.log("Added token uri change to firestore with id: ", ref.id);
                 });
             } else {
