@@ -116,9 +116,15 @@ function sendDummyTxn(slot) {
             slotsUsed--;
         }).catch(err => {
             //reset program nonce to account nonce
-            console.log("Dummy txn with nonce " + " failed when lowestNonce is " + lowestNonce);
+            console.log("Dummy txn with nonce " + nonce + " failed when lowestNonce is " + lowestNonce);
             slots[slot] = 0;
             slotsUsed--;
+            web3js.eth.getTransactionCount(fromAddress, "pending").then(count => {
+                console.log("Program nonce " + lowestNonce + " is being reset to account nonce " + count);
+                lowestNonce = count;
+            }).catch(error => {
+                console.log("Error while getting account nonce ", error);
+            });
         });
     } else {
         slots[slot] = 0;
