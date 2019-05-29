@@ -1,3 +1,4 @@
+require('@google-cloud/debug-agent').start();
 require("dotenv").config();
 
 const express = require("express");
