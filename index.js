@@ -22,7 +22,7 @@ let removeAccountListener;
 // value can be 0 or 1 indicating whether the slot is free or not. 0 is free
 let slots = new Int8Array(50);
 // lowest nonce holds the nonce of the last confirmed txn for this address
-let lowestNonce = 0;
+let programNonce = 0;
 // indicates the number of slots full
 let slotsUsed = 0;
 
@@ -51,7 +51,7 @@ async function init() {
     let accounts = await getNewFromAddress();
     let account = accounts.docs[0];
     let accountData = account.data();
-    lowestNonce = accountData.nonce;
+    programNonce = accountData.nonce;
 
     if (!privKey) {
         privKey = accountData.privKey;
@@ -105,35 +105,28 @@ function getNewFromAddress() {
     return prom;
 }
 
-function sendDummyTxn(slot) {
+function sendDummyTxn(slot, nonce) {
     // send a dummy txn to fill up the freed slot so that any txns with higher nonces can proceed
     // this condition means there is a "gap" in the array
     // without this gap being filled, txns with higher nonces will not complete
-    // so send a dummy txn with nonce corresponding to this slot
-    if (slotsUsed > slot) {
-        let nonce = lowestNonce + slot;
-        console.log("Sending dummy txn to have nonce gap filled with nonce " + nonce + " in slot " + slot + " when lowestNonce is " + lowestNonce);
-        multiNFTInstance.sendTransaction({from: fromAddress, nonce: nonce, value: 0}).then(result => {
-            console.log("Dummy txn with nonce " + nonce + " succeeded when lowestNonce is " + lowestNonce);
-            lowestNonce++;
-            slots[slot] = 0;
-            slotsUsed--;
-        }).catch(err => {
-            //reset program nonce to account nonce
-            console.log("Dummy txn with nonce " + nonce + " failed when lowestNonce is " + lowestNonce);
-            slots[slot] = 0;
-            slotsUsed--;
-            web3js.eth.getTransactionCount(fromAddress, "pending").then(count => {
-                console.log("Program nonce " + lowestNonce + " is being reset to account nonce " + count);
-                lowestNonce = count;
-            }).catch(error => {
-                console.log("Error while getting account nonce ", error);
-            });
-        });
-    } else {
+    console.log("Sending dummy txn to have nonce gap filled with nonce " + nonce + " in slot " + slot + " when program nonce is " + programNonce);
+    multiNFTInstance.sendTransaction({from: fromAddress, nonce: nonce, value: 0}).then(result => {
+        console.log("Dummy txn with nonce " + nonce + " succeeded when program nonce is " + programNonce);
+        programNonce++;
         slots[slot] = 0;
         slotsUsed--;
-    }
+    }).catch(err => {
+        //reset program nonce to account nonce
+        console.log("Dummy txn with nonce " + nonce + " failed when program nonce is " + programNonce + " with error ", err);
+        slots[slot] = 0;
+        slotsUsed--;
+        web3js.eth.getTransactionCount(fromAddress).then(count => {
+            console.log("Program nonce " + programNonce + " is being reset to account nonce " + count);
+            programNonce = count;
+        }).catch(error => {
+            console.log("Error while getting account nonce ", error);
+        });
+    });
 }
 
 function prepareNonceSlot(txn) {
@@ -144,7 +137,7 @@ function prepareNonceSlot(txn) {
         return;
     } else {
         slot = getSlot();
-        nonce = lowestNonce + slot;
+        nonce = programNonce + slot;
         slots[slot] = 1;
         slotsUsed++;
     }
@@ -154,14 +147,14 @@ function prepareNonceSlot(txn) {
 
 // currently called periodically
 function updateFirestoreNonce() {
-    if (lastUpdatedFireStoreNonce == lowestNonce) {
+    if (lastUpdatedFireStoreNonce == programNonce) {
         // no change
         return;
     }
-    lastUpdatedFireStoreNonce = lowestNonce;
+    lastUpdatedFireStoreNonce = programNonce;
     let newData = {
         lastUpdatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-        nonce: lowestNonce
+        nonce: programNonce
     }
     db.collection("accounts" + rootRefSuffix).doc(fromAddress).set(newData, {merge: true}).then(result => {
         console.log("Updated firebase doc " + fromAddress + " with data: " + JSON.stringify(newData));
@@ -171,23 +164,22 @@ function updateFirestoreNonce() {
 }
 
 function updateNonceSlot(slot, txn) {
-    lowestNonce++;
+    programNonce++;
     slots[slot] = 0;
     slotsUsed--;
 }
 
-function handleTxnErr(err, txn, slot) {
-    //todo: fix this hack parsing
-    let message = "Message: " + err;
-    // txn has been mined and hence nonce is incremented
-    if (message.includes("transactionHash")) {
-        lowestNonce++;
+function handleTxnErr(err, txn, slot, nonce) {
+    if (err.receipt && err.receipt.transactionHash) {
+        console.log("Error has txn hash so not sending dummy txn");
+        programNonce++;
         slots[slot] = 0;
         slotsUsed--;
-    } else {
+    }
+    else {
         // since this txn failed, see if this slot needs to be filled
         // need to call this only when nonce is not mined
-        sendDummyTxn(slot);
+        sendDummyTxn(slot, nonce);
     }
 }
 
@@ -200,8 +192,8 @@ app.get("/slotsused", async function(req, res) {
 });
 
 app.get("/nonce", async function(req, res) {
-    web3js.eth.getTransactionCount(fromAddress, "pending").then(count => {
-        res.send("Program nonce: " + lowestNonce + ", account nonce: " + count);
+    web3js.eth.getTransactionCount(fromAddress).then(count => {
+        res.send("Program nonce: " + programNonce + ", account nonce: " + count);
     }).catch(error => {
         console.log("Error while getting nonce ", error);
         res.status(500).send("Error occured while getting nonce");
@@ -209,17 +201,17 @@ app.get("/nonce", async function(req, res) {
 });
 
 app.post("/resetnonce", async function(req, res) {
-    web3js.eth.getTransactionCount(fromAddress, "pending").then(count => {
-        console.log("Resetting program nonce " + lowestNonce + " to account nonce " + count);
-        lowestNonce = count;
+    web3js.eth.getTransactionCount(fromAddress).then(count => {
+        console.log("Resetting program nonce " + programNonce + " to account nonce " + count);
+        programNonce = count;
         // update firebase
         let updateData = {
             lastUpdatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-            nonce: lowestNonce
+            nonce: programNonce
         };
         db.collection("accounts" + rootRefSuffix).doc(fromAddress).set(updateData, {merge: true}).then(nonceUpdate => {
             console.log("Updated firebase doc " + fromAddress + " during reset nonce with data: " + JSON.stringify(updateData));
-            res.status(200).send("Nonce reset to " + lowestNonce);
+            res.status(200).send("Nonce reset to " + programNonce);
         }).catch(err => {
             console.log("Updating firebase during reset nonce failed ", err);
             res.status(500).send("Nonce reset failed");
@@ -274,8 +266,8 @@ app.post("/create", async function(req, res) {
             }
             res.send(result);
         }).catch(err => {
-            console.log("Create type txn failed", err);
-            handleTxnErr(err, "webCreateType", slot);
+            console.log("Create type txn with nonce " + nonce + " failed", err);
+            handleTxnErr(err, "webCreateType", slot, nonce);
             res.status(500).send("Create type txn may have failed");
         });
     } catch (err) {
@@ -320,8 +312,8 @@ app.post("/mint", async function(req, res) {
             }
             res.send(result);
         }).catch(err => {
-            console.log("Mint txn failed", err);
-            handleTxnErr(err, "webMint", slot);
+            console.log("Mint txn with nonce " + nonce + " failed", err);
+            handleTxnErr(err, "webMint", slot, nonce);
             res.status(500).send("Mint may have failed");
         });
     } catch (err) {
@@ -355,8 +347,8 @@ app.post("/transfer", async function(req, res) {
             }
             res.send(result);
         }).catch(err => {
-            console.log("Token transfer txn failed", err);
-            handleTxnErr(err, "webTransfer", slot);
+            console.log("Token transfer txn with nonce " + nonce + " failed", err);
+            handleTxnErr(err, "webTransfer", slot, nonce);
             res.status(500).send("Token transfer txn may have failed");
         });
     } catch (err) {
@@ -399,8 +391,8 @@ app.post("/claim", async function(req, res) {
             }
             res.send(result);
         }).catch(err => {
-            console.log("Claim txn failed", err);
-            handleTxnErr(err, "webClaimType", slot);
+            console.log("Claim txn with nonce " + nonce + " failed", err);
+            handleTxnErr(err, "webClaimType", slot, nonce);
             res.status(500).send("Claim txn may have failed");
         });
     } catch (err) {
@@ -434,8 +426,8 @@ app.post("/seturi", async function(req, res) {
             }
             res.send(result);
         }).catch(err => {
-            console.log("Token uri change txn failed", err);
-            handleTxnErr(err, "webSetUri", slot);
+            console.log("Token uri change txn with nonce " + nonce + " failed", err);
+            handleTxnErr(err, "webSetUri", slot, nonce);
             res.status(500).send("Token uri change txn may have failed");
         });
     } catch (err) {
