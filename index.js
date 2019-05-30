@@ -209,7 +209,8 @@ function logResult(result) {
         tx: result.receipt.transactionHash,
         gasUsed: result.receipt.gasUsed,
         gasPrice: gasPrice,
-        gasLimit: gasLimit  
+        gasLimit: gasLimit ,
+        status: result.receipt.status 
     }
     console.log(JSON.stringify(logObject));
 }
