@@ -17,7 +17,14 @@ const multiNFTJson = require("./MultiNFT.json");
 const MultiNFT = truffleContract(multiNFTJson);
 let multiNFTInstance;
 let web3js;
+let web3Provider;
+
 let fromAddress = process.env.FROM_ADDRESS;
+let provider = process.env.web3Provider;
+let contractAddress = process.env.multiNFTContractAddress;
+let privKey = process.env.privKey;
+let gasLimit = process.env.gasLimit;
+let gasPrice = process.env.gasPriceWei;
 
 // value can be 0 or 1 indicating whether the slot is free or not. 0 is free
 let slots = new Int8Array(50);
@@ -29,77 +36,89 @@ let lastUpdatedFireStoreNonce = 0;
 
 const port = process.env.PORT || 3000;
 
-let configObj = {};
-
 init();
 
 async function init() {
-    let provider = process.env.web3Provider;
-    let contractAddress = process.env.multiNFTContractAddress;
-    let privKey = process.env.privKey;
-    let gasLimit = process.env.gasLimit;
-    let gasPrice = process.env.gasPriceWei;
+    let unsub;
+    let configVersion;
+    db.collection("config").doc("current").onSnapshot(currentConfig => {
+        if (unsub) {
+            // stop listening to old version changes
+            unsub();
+            console.log("Stopped listening to old doc");
+        }
+        configVersion = currentConfig.data().version;
+        console.log("Current config version changed. Reading new data");
+        unsub = readNewConfig(configVersion);
+    }, err => {
+        console.log(`Encountered error: ${err} while listening to current config version changes`);
+    });
+    // update firestore nonce every 10 seconds
+    setInterval(updateFirestoreNonce, 10*1000);
+}
 
-    let currentConfig = await db.collection("config").doc("current").get();
-    let version = currentConfig.data().version;
-    let config = await db.collection("config").doc(version).get();
-    let configData =config.data();
-
-    if (!rootRefSuffix) {
-        rootRefSuffix = configData.rootRefSuffix;
-    }
-
-    let accounts = await getNewFromAddress();
-    let account = accounts.docs[0];
-    let accountData = account.data();
-    programNonce = accountData.nonce;
-
+async function initContract() {
     if (!privKey) {
-        privKey = accountData.privKey;
+        console.log("Contract cannot be initialized since privKey is null");
+        return;
     }
-    if (!fromAddress) {
-        fromAddress = account.id;
-    }
-
     if (!provider) {
-        provider = configData.web3Provider;
+        console.log("Contract cannot be initialized since provider is null");
+        return;
     }
-    if (!contractAddress) {
-        contractAddress = configData.multiNFTContractAddress;
-    }
-    if (!gasLimit) {
-        gasLimit = configData.gasLimit;
-    }
-    if (!gasPrice) {
-        gasPrice = configData.gasPriceWei;
-    }
-
-    configObj = {
-        fromAddress: fromAddress,
-        gasPrice: gasPrice,
-        gasLimit: gasLimit,
-        provider: provider
-    }
-    console.log("Loaded config: " + JSON.stringify(configObj));
-
-    let web3Provider = new HDWalletProvider(privKey, provider);
+    // logging provider string length as the actual string is confidential 
+    console.log("Initiating contract with from address: " + fromAddress + " and provider with string length " + provider.length);
+    web3Provider = new HDWalletProvider(privKey, provider);
     // need to stop engine since unnecessary polling is not required
     // todo: also truffle contract handler listens for 25 txn confirmations before resolving, need to change that 
     web3Provider.engine.stop();
     web3js = new web3(web3Provider, undefined, {transactionConfirmationBlocks: 1});
-
     MultiNFT.setProvider(web3Provider);
-    MultiNFT.defaults({
-        from: fromAddress,
-        gas: gasLimit,
-        gasPrice: gasPrice,
-        value: 0
-    })
     MultiNFT.numberFormat = "String";
     multiNFTInstance = await MultiNFT.at(contractAddress);
+    console.log("Contract initialized");
+}
 
-    // update firestore nonce every 10 seconds
-    setInterval(updateFirestoreNonce, 10*1000);
+function readNewConfig(version) {
+    let unsub = db.collection("config").doc(version).onSnapshot(async config => {
+        console.log("Config changed");
+        let configData = config.data();
+        // root suffix check must come before from address check since address info is read from a collection with this suffix
+        if (!rootRefSuffix || rootRefSuffix != configData.rootRefSuffix) {
+            rootRefSuffix = configData.rootRefSuffix;
+        }
+        if (!contractAddress || contractAddress != configData.multiNFTContractAddress) {
+            contractAddress = configData.multiNFTContractAddress;
+        }
+        if (!gasLimit || gasLimit != configData.gasLimit) {
+            gasLimit = configData.gasLimit;
+        }
+        if (!gasPrice || gasPrice != configData.gasPriceWei) {
+            gasPrice = configData.gasPriceWei;
+        }
+        if (!fromAddress || fromAddress != configData.fromAddress) {
+            console.log("Account changed to " + configData.fromAddress);
+            fromAddress = configData.fromAddress;
+            await readAddressData();
+        }
+        // provider check should always be the last we check for since it involves initializing contract
+        if (!provider || provider != configData.web3Provider) {
+            provider = configData.web3Provider;
+            initContract();
+        } 
+    }, err => {
+        console.log(`Encountered error: ${err} while listening to config changes`);
+    });
+    return unsub;
+}
+
+async function readAddressData() {
+    let account = await db.collection("accounts" + rootRefSuffix).doc(fromAddress).get();
+    console.log("account new data " + JSON.stringify(account));
+    console.log(account.data());
+    programNonce = account.data().nonce;
+    privKey = account.data().privKey;
+    initContract();
 }
 
 function getSlot() {
@@ -110,11 +129,6 @@ function getSlot() {
     }
     // this should never happen
     return slots.length + 1;
-}
-
-function getNewFromAddress() {
-    let prom = db.collection("accounts" + rootRefSuffix).orderBy("lastUpdatedAt", "asc").limit(1).get();
-    return prom;
 }
 
 function sendDummyTxn(slot, nonce) {
@@ -201,8 +215,8 @@ function logResult(result) {
     let logObject = {
         tx: result.receipt.transactionHash,
         gasUsed: result.receipt.gasUsed,
-        gasPrice: configObj.gasPrice
-        
+        gasPrice: gasPrice,
+        gasLimit: gasLimit  
     }
     console.log(JSON.stringify(logObject));
 }
@@ -260,7 +274,14 @@ app.post("/create", async function(req, res) {
         let nonce = nonceSlot[0];
         let slot = nonceSlot[1];
 
-        multiNFTInstance.webCreateType(req.body.name, req.body.symbol, req.body.uri, req.body.owner, {nonce: nonce, from: fromAddress}).then(result => {
+        let txnProps = {
+            from: fromAddress,
+            nonce: nonce,
+            gas: gasLimit,
+            gasPrice: gasPrice
+        }
+
+        multiNFTInstance.webCreateType(req.body.name, req.body.symbol, req.body.uri, req.body.owner, txnProps).then(result => {
 
             updateNonceSlot(slot, "webCreateType");
 
@@ -306,7 +327,14 @@ app.post("/mint", async function(req, res) {
         let nonce = nonceSlot[0];
         let slot = nonceSlot[1];
 
-        multiNFTInstance.webMint(req.body.name, req.body.uri, req.body.count, req.body.owner, {nonce: nonce, from: fromAddress}).then(result => {
+        let txnProps = {
+            from: fromAddress,
+            nonce: nonce,
+            gas: gasLimit,
+            gasPrice: gasPrice
+        }
+
+        multiNFTInstance.webMint(req.body.name, req.body.uri, req.body.count, req.body.owner, txnProps).then(result => {
 
             updateNonceSlot(slot, "webMint");
 
@@ -353,7 +381,14 @@ app.post("/transfer", async function(req, res) {
         let nonce = nonceSlot[0];
         let slot = nonceSlot[1];
 
-        multiNFTInstance.webTransfer(req.body.to, req.body.tokenId, req.body.owner, {nonce: nonce, from: fromAddress}).then(result => {
+        let txnProps = {
+            from: fromAddress,
+            nonce: nonce,
+            gas: gasLimit,
+            gasPrice: gasPrice
+        }
+
+        multiNFTInstance.webTransfer(req.body.to, req.body.tokenId, req.body.owner, txnProps).then(result => {
 
             updateNonceSlot(slot, "webTransfer");
 
@@ -389,7 +424,14 @@ app.post("/claim", async function(req, res) {
         let nonce = nonceSlot[0];
         let slot = nonceSlot[1];
 
-        multiNFTInstance.webClaimType(req.body.name, req.body.oldOwner, req.body.newOwner, {nonce: nonce, from: fromAddress}).then(result => {
+        let txnProps = {
+            from: fromAddress,
+            nonce: nonce,
+            gas: gasLimit,
+            gasPrice: gasPrice
+        }
+
+        multiNFTInstance.webClaimType(req.body.name, req.body.oldOwner, req.body.newOwner, txnProps).then(result => {
 
             updateNonceSlot(slot, "webClaimType");
 
@@ -434,7 +476,14 @@ app.post("/seturi", async function(req, res) {
         let nonce = nonceSlot[0];
         let slot = nonceSlot[1];
 
-        multiNFTInstance.webSetTokenURI(req.body.tokenId, req.body.uri, req.body.owner, {nonce: nonce, from: fromAddress}).then(result => {
+        let txnProps = {
+            from: fromAddress,
+            nonce: nonce,
+            gas: gasLimit,
+            gasPrice: gasPrice
+        }
+
+        multiNFTInstance.webSetTokenURI(req.body.tokenId, req.body.uri, req.body.owner, txnProps).then(result => {
             
             updateNonceSlot(slot, "webSetUri");
 
