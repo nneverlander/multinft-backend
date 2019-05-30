@@ -114,8 +114,6 @@ function readNewConfig(version) {
 
 async function readAddressData() {
     let account = await db.collection("accounts" + rootRefSuffix).doc(fromAddress).get();
-    console.log("account new data " + JSON.stringify(account));
-    console.log(account.data());
     programNonce = account.data().nonce;
     privKey = account.data().privKey;
     initContract();
