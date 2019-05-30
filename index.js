@@ -51,7 +51,7 @@ async function init() {
         console.log("Current config version changed. Reading new data");
         unsub = readNewConfig(configVersion);
     }, err => {
-        console.log(`Encountered error: ${err} while listening to current config version changes`);
+        console.err(`Encountered error: ${err} while listening to current config version changes`);
     });
 }
 
@@ -105,7 +105,7 @@ function readNewConfig(version) {
             initContract();
         } 
     }, err => {
-        console.log(`Encountered error: ${err} while listening to config changes`);
+        console.err(`Encountered error: ${err} while listening to config changes`);
     });
     return unsub;
 }
@@ -140,11 +140,11 @@ function sendDummyTxn(slot, nonce) {
         slotsUsed--;
     }).catch(async err => {
         //reset program nonce to account nonce
-        console.log("Dummy txn with nonce " + nonce + " failed when program nonce is " + programNonce + " with error ", err.toString());
+        console.err("Dummy txn with nonce " + nonce + " failed when program nonce is " + programNonce + " with error ", err.toString());
         slots[slot] = 0;
         slotsUsed--;
         let accountNonce = await getAccountNonce();
-        console.log("Program nonce " + programNonce + " is being reset to account nonce " + accountNonce);
+        console.err("Program nonce " + programNonce + " is being reset to account nonce " + accountNonce);
         programNonce = accountNonce;
     });
 }
@@ -286,12 +286,12 @@ app.post("/create", async function(req, res) {
             }
             res.send(result);
         }).catch(err => {
-            console.log("Create type txn with nonce " + nonce + " failed", err.toString());
+            console.err("Create type txn with nonce " + nonce + " failed", err.toString());
             handleTxnErr(err, "webCreateType", slot, nonce);
             res.status(500).send("Create type txn may have failed");
         });
     } catch (err) {
-        console.log("Create type " + req.body.name + " failed", err.toString());
+        console.err("Create type " + req.body.name + " failed", err.toString());
     }
 });
 
@@ -336,16 +336,16 @@ app.post("/mint", async function(req, res) {
                     console.log("Added " + req.body.count + " mints of type " + req.body.name + " to firestore with id: ", ref.id);
                 });
             } else {
-                console.log("Mints of type " + req.body.name + " not added to firestore");
+                console.err("Mints of type " + req.body.name + " not added to firestore");
             }
             res.send(result);
         }).catch(err => {
-            console.log("Mint txn with nonce " + nonce + " failed", err.toString());
+            console.err("Mint txn with nonce " + nonce + " failed", err.toString());
             handleTxnErr(err, "webMint", slot, nonce);
             res.status(500).send("Mint may have failed");
         });
     } catch (err) {
-        console.log("Minting of " + req.body.name + " failed", err.toString());
+        console.err("Minting of " + req.body.name + " failed", err.toString());
     }
 });
 
@@ -383,12 +383,12 @@ app.post("/transfer", async function(req, res) {
             }
             res.send(result);
         }).catch(err => {
-            console.log("Token transfer txn with nonce " + nonce + " failed", err.toString());
+            console.err("Token transfer txn with nonce " + nonce + " failed", err.toString());
             handleTxnErr(err, "webTransfer", slot, nonce);
             res.status(500).send("Token transfer txn may have failed");
         });
     } catch (err) {
-        console.log("Transfer failed", err.toString());
+        console.err("Transfer failed", err.toString());
     }
 });
 
@@ -435,12 +435,12 @@ app.post("/claim", async function(req, res) {
             }
             res.send(result);
         }).catch(err => {
-            console.log("Claim txn with nonce " + nonce + " failed", err.toString());
+            console.err("Claim txn with nonce " + nonce + " failed", err.toString());
             handleTxnErr(err, "webClaimType", slot, nonce);
             res.status(500).send("Claim txn may have failed");
         });
     } catch (err) {
-        console.log('Claim failed', err.toString());
+        console.err('Claim failed', err.toString());
     }
 });
 
@@ -477,12 +477,12 @@ app.post("/seturi", async function(req, res) {
             }
             res.send(result);
         }).catch(err => {
-            console.log("Token uri change txn with nonce " + nonce + " failed", err.toString());
+            console.err("Token uri change txn with nonce " + nonce + " failed", err.toString());
             handleTxnErr(err, "webSetUri", slot, nonce);
             res.status(500).send("Token uri change txn may have failed");
         });
     } catch (err) {
-        console.log('Token uri change failed', err.toString());
+        console.err('Token uri change failed', err.toString());
     }
 });
 
