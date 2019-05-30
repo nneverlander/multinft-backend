@@ -18,7 +18,6 @@ const MultiNFT = truffleContract(multiNFTJson);
 let multiNFTInstance;
 let web3js;
 let fromAddress = process.env.FROM_ADDRESS;
-let removeAccountListener;
 
 // value can be 0 or 1 indicating whether the slot is free or not. 0 is free
 let slots = new Int8Array(50);
@@ -75,6 +74,9 @@ async function init() {
     }
 
     let web3Provider = new HDWalletProvider(privKey, provider);
+    // need to stop engine since unnecessary polling is not required
+    // todo: also truffle contract handler listens for 25 txn confirmations before resolving, need to change that 
+    web3Provider.engine.stop();
     web3js = new web3(web3Provider, undefined, {transactionConfirmationBlocks: 1});
 
     MultiNFT.setProvider(web3Provider);
