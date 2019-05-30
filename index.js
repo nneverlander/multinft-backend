@@ -133,7 +133,14 @@ function sendDummyTxn(slot, nonce) {
     // this condition means there is a "gap" in the array
     // without this gap being filled, txns with higher nonces will not complete
     console.log("Sending dummy txn to have nonce gap filled with nonce " + nonce + " in slot " + slot + " when program nonce is " + programNonce);
-    multiNFTInstance.sendTransaction({from: fromAddress, nonce: nonce, value: 0}).then(result => {
+    let txnProps = {
+        from: fromAddress,
+        nonce: nonce,
+        gas: gasLimit,
+        gasPrice: gasPrice,
+        value: 0
+    }
+    multiNFTInstance.sendTransaction(txnProps).then(result => {
         console.log("Dummy txn with nonce " + nonce + " succeeded when program nonce is " + programNonce);
         programNonce++;
         slots[slot] = 0;
