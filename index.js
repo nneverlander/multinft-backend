@@ -442,7 +442,7 @@ app.post("/claim", async function(req, res) {
             }
             res.send(result);
         }).catch(err => {
-            console.error("Claim txn with nonce " + nonce + " failed", err.toString());
+            console.error("Claim txn with nonce " + nonce + " failed", err);
             handleTxnErr(err, "webClaimType", slot, nonce);
             res.status(500).send("Claim txn may have failed");
         });
