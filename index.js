@@ -53,8 +53,6 @@ async function init() {
     }, err => {
         console.log(`Encountered error: ${err} while listening to current config version changes`);
     });
-    // update firestore nonce every 10 seconds
-    setInterval(updateFirestoreNonce, 10*1000);
 }
 
 async function initContract() {
@@ -114,8 +112,9 @@ function readNewConfig(version) {
 
 async function readAddressData() {
     let account = await db.collection("accounts" + rootRefSuffix).doc(fromAddress).get();
-    programNonce = account.data().nonce;
     privKey = account.data().privKey;
+    programNonce = await getAccountNonce();
+    
     initContract();
 }
 
@@ -139,17 +138,14 @@ function sendDummyTxn(slot, nonce) {
         programNonce++;
         slots[slot] = 0;
         slotsUsed--;
-    }).catch(err => {
+    }).catch(async err => {
         //reset program nonce to account nonce
         console.log("Dummy txn with nonce " + nonce + " failed when program nonce is " + programNonce + " with error ", err.toString());
         slots[slot] = 0;
         slotsUsed--;
-        web3js.eth.getTransactionCount(fromAddress).then(count => {
-            console.log("Program nonce " + programNonce + " is being reset to account nonce " + count);
-            programNonce = count;
-        }).catch(error => {
-            console.log("Error while getting account nonce ", error.toString());
-        });
+        let accountNonce = await getAccountNonce();
+        console.log("Program nonce " + programNonce + " is being reset to account nonce " + accountNonce);
+        programNonce = accountNonce;
     });
 }
 
@@ -167,24 +163,6 @@ function prepareNonceSlot(txn) {
     }
     console.log("For " + txn + ", using nonce " + nonce + ", from address: " + fromAddress + ", slot " + slot + ". Slots used so far: " + slotsUsed);
     return [nonce, slot];
-}
-
-// currently called periodically
-function updateFirestoreNonce() {
-    if (lastUpdatedFireStoreNonce == programNonce) {
-        // no change
-        return;
-    }
-    lastUpdatedFireStoreNonce = programNonce;
-    let newData = {
-        lastUpdatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-        nonce: programNonce
-    }
-    db.collection("accounts" + rootRefSuffix).doc(fromAddress).set(newData, {merge: true}).then(result => {
-        console.log("Updated firebase doc " + fromAddress + " with data: " + JSON.stringify(newData));
-    }).catch(err => {
-        console.log("Updating firebase failed ", err.toString());
-    })
 }
 
 function updateNonceSlot(slot, txn) {
@@ -208,6 +186,16 @@ function handleTxnErr(err, txn, slot, nonce) {
     }
 }
 
+async function getAccountNonce() {
+    let accountNonce = 0;
+    try {
+        accountNonce = await web3js.eth.getTransactionCount(fromAddress);
+    } catch (error) {
+        console.err("Error occured while getting account nonce", error.toString());
+    }
+    return accountNonce;
+}
+
 // this is for stackdriver ax
 function logResult(result) {
     let logObject = {
@@ -227,32 +215,20 @@ app.get("/slotsused", async function(req, res) {
     res.send("Slots used: " + slotsUsed);
 });
 
+app.post("/resetslots", async function(req, res) {
+    slotsUsed = 0;
+    res.send("Slots " + slotsUsed + " reset to 0");
+});
+
 app.get("/nonce", async function(req, res) {
-    web3js.eth.getTransactionCount(fromAddress).then(count => {
-        res.send("Program nonce: " + programNonce + ", account nonce: " + count);
-    }).catch(error => {
-        console.log("Error while getting nonce ", error.toString());
-        res.status(500).send("Error occured while getting nonce");
-    });
+    let accountNonce = await getAccountNonce();
+    res.send("Program nonce: " + programNonce + ", account nonce: " + accountNonce);
 });
 
 app.post("/resetnonce", async function(req, res) {
-    web3js.eth.getTransactionCount(fromAddress).then(count => {
-        console.log("Resetting program nonce " + programNonce + " to account nonce " + count);
-        programNonce = count;
-        // update firebase
-        let updateData = {
-            lastUpdatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-            nonce: programNonce
-        };
-        db.collection("accounts" + rootRefSuffix).doc(fromAddress).set(updateData, {merge: true}).then(nonceUpdate => {
-            console.log("Updated firebase doc " + fromAddress + " during reset nonce with data: " + JSON.stringify(updateData));
-            res.status(200).send("Nonce reset to " + programNonce);
-        }).catch(err => {
-            console.log("Updating firebase during reset nonce failed ", err.toString());
-            res.status(500).send("Nonce reset failed");
-        })
-    });
+    let accountNonce = await getAccountNonce();
+    programNonce = accountNonce;
+    res.status(200).send("Program nonce " + programNonce + " reset to accoun nonce " + accountNonce);
 });
 
 app.post("/create", async function(req, res) {
