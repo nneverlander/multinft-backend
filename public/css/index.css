@@ -1,0 +1,93 @@
+@font-face {
+  font-family: avenirLight;
+  src: url('../fonts/AvenirLTStd-Light.otf');
+}
+
+body {
+  /*background-image: linear-gradient(to bottom right, #007bff, #007bff, #007bff, white);*/
+  font-family: avenirLight;
+  letter-spacing: 1.5px;
+}
+
+::-webkit-input-placeholder {
+  font-size: 13px;
+}
+::-moz-placeholder {
+  font-size: 13px;
+}
+:-ms-input-placeholder {
+  font-size: 13px;
+}
+::placeholder {
+  font-size: 13px;
+}
+
+.center {
+  position: absolute;
+  margin: auto;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  width: 50%;
+  height: 55%;
+}
+
+.btn-blue {
+	background-color: #05f;
+	padding: 15px 25px;
+	letter-spacing: 2px;
+	font-size: 15px;
+}
+
+.btn-blue-sidepad {
+	padding: 0 20px; 
+	background-color: #05f;
+	letter-spacing: 2px;
+	font-size: 15px;
+}
+
+.btn-blue-nopad {
+	background-color: #05f;
+	letter-spacing: 2px;
+	font-size: 15px;
+}
+
+.black-text {
+	color: black;
+}
+
+.red-text {
+	color: red;
+	font-size: 15px;
+}
+
+.font-big {
+	font-size: 20px;
+	font-weight: bolder;
+}
+
+.shadow-border {
+	border-radius: 10px 10px 10px 10px;
+	-moz-border-radius: 10px 10px 10px 10px;
+	-webkit-border-radius: 10px 10px 10px 10px;
+	border: 1px solid rgba(209,209,209,1);
+	-webkit-box-shadow: 0px 0px 9px 0px rgba(209,209,209,1);
+	-moz-box-shadow: 0px 0px 9px 0px rgba(209,209,209,1);
+	box-shadow: 0px 0px 9px 0px rgba(209,209,209,1);
+}
+
+.input-border {
+	font-size: 20px; 
+	border-radius: 5px; 
+    border: 1px solid rgba(209,209,209,1);"
+}
+
+.padded {
+	padding: 20px 40px;
+}
+
+.logo {
+	height: 40px;
+	width: 130px;
+}

@@ -1,9 +1,11 @@
 require('@google-cloud/debug-agent').start();
 require("dotenv").config();
+const path = require('path');
 
 const express = require("express");
 const app = express();
 app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public')));
 
 const firebase = require("firebase-admin");
 firebase.initializeApp();
@@ -73,7 +75,9 @@ async function initContract() {
     web3js = new web3(web3Provider, undefined, {transactionConfirmationBlocks: 1});
     MultiNFT.setProvider(web3Provider);
     MultiNFT.numberFormat = "String";
+
     multiNFTInstance = await MultiNFT.at(contractAddress);
+    programNonce = await getAccountNonce();
     console.log("Contract initialized");
 }
 
@@ -113,8 +117,6 @@ function readNewConfig(version) {
 async function readAddressData() {
     let account = await db.collection("accounts" + rootRefSuffix).doc(fromAddress).get();
     privKey = account.data().privKey;
-    programNonce = await getAccountNonce();
-    
     initContract();
 }
 
@@ -216,7 +218,7 @@ function logResult(result) {
 }
 
 app.get("/", async function(req, res) {
-    res.send("Hello");
+    res.sendFile(path.join(__dirname, 'public/html/index.html'));
 });
 
 app.get("/slotsused", async function(req, res) {
@@ -231,6 +233,11 @@ app.post("/resetslots", async function(req, res) {
 app.get("/nonce", async function(req, res) {
     let accountNonce = await getAccountNonce();
     res.send("Program nonce: " + programNonce + ", account nonce: " + accountNonce);
+});
+
+app.get("/geturi", async function(req, res) {
+    let tokenUri = await multiNFTInstance.tokenURI(req.body.tokenId);
+    res.send(tokenUri);
 });
 
 app.post("/resetnonce", async function(req, res) {

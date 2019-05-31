@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-134134864-1"></script>
+    <script>
+    window.dataLayer = window.dataLayer || [];
+
+    function gtag() { dataLayer.push(arguments); }
+    gtag('js', new Date());
+
+    gtag('config', 'UA-134134864-1');
+    </script>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+    <link rel="stylesheet" href="../css/index.css">
+
+    <title>NFTs!!</title>
+
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+    <script src="../js/main.js"></script>
+
+  </head>
+
+  <body>
+
+    <nav class="navbar navbar-expand-lg navbar-light">
+      <a class="navbar-brand" href="#"><img src="../img/logo.png" class="logo" /></a>
+      <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNavAltMarkup" aria-controls="navbarNavAltMarkup" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNavAltMarkup">
+        <div class="navbar-nav" style="padding-top: 10px;">
+          <a class="nav-item nav-link active" href="#">Tokens <span class="sr-only">(current)</span></a>
+          <a class="nav-item nav-link" href="#">Create</a>
+          <a class="nav-item nav-link" href="#">Send</a>
+          <a class="nav-item nav-link" href="#">Recent activity</a>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Welcome Modal -->
+    <div class="modal fade" id="welcome" tabindex="-1" role="dialog" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+          <div class="modal-body text-center">
+            <div class="padded">
+                <br>
+                <h5 style="font-weight: bolder;">Welcome to the token minting company</h5>
+                <br>
+                <button type="button" class="btn btn-primary btn-blue" data-toggle="modal" data-target="#create">Create an NFT</button>
+                <br><br>
+                <p>or fetch tokens</p>
+                <div class="input-group" style="margin: 0 8%">
+                    <input type="text" class="form-control-lg input-border" id="welcomeOwner" placeholder=" owner">
+                    <div class="input-group-append">
+                        <button class="btn btn-primary btn-blue-sidepad" type="button" id="welcomeFetch">Fetch</button>
+                    </div>
+                </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Create Modal -->
+    <div class="modal fade" id="create" tabindex="-1" role="dialog" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+          <div class="modal-body">
+            <div class="padded">
+                <form>
+                  <div class="form-group">
+                    <div class="text-center">
+                        <h3>Create an NFT</h3>
+                    </div>
+                    <br>
+                    <input type="text" class="form-control form-control-lg black-text" id="name" aria-describedby="nameHelp" placeholder="Name">
+                    <small id="nameHelp" class="form-text text-muted">Ex: My awesome NFT</small>
+                  </div>
+                  <div class="form-group">
+                    <input type="text" class="form-control form-control-lg black-text" id="symbol" aria-describedby="symbolHelp" placeholder="Symbol">
+                    <small id="symbolHelp" class="form-text text-muted">Ex: MyNFT</small>
+                  </div>
+                  <div class="form-group">
+                    <input type="text" class="form-control form-control-lg black-text" id="owner" aria-describedby="ownerHelp" placeholder="Owner">
+                    <small id="ownerHelp" class="form-text text-muted">Ex: Jesus <span class="form-text red-text">Don't forget the owner or you won't be able to access your NFTs</span></small>
+                  </div>
+                  <button type="submit" class="btn btn-primary btn-blue">Create</button>
+                </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Transfer Modal -->
+    <div class="modal fade" id="transfer" tabindex="-1" role="dialog" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+          <div class="modal-body">
+            <div class="padded">
+                <form>
+                  <div class="form-group">
+                    <div class="text-center">
+                        <h3>Send token</h3>
+                    </div>
+                    <br>
+                    <input type="text" class="form-control form-control-lg black-text" id="transferTo" aria-describedby="transferHelp" 
+                            placeholder="Ethereum address">
+                    <small id="transferHelp" class="form-text text-muted">Ex: 0x90f8bf6a479f320ead074411a4b0e7944ea8c9c1
+                        <span class="form-text red-text" style="letter-spacing: 1px;">Be sure the address is correct. Once transferred, there is no going back</span>
+                    </small>
+                  </div>
+                  <button type="submit" class="btn btn-primary btn-blue">Send</button>
+                </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
+  </body>
+
+</html>
