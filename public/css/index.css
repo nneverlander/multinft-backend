@@ -33,6 +33,17 @@ body {
   height: 55%;
 }
 
+.swal-confirm-btn {
+	background-color: #05f !important;
+	padding: 15px 25px;
+	letter-spacing: 2px;
+	font-size: 15px;
+}
+
+.swal-title {
+	color: black !important;
+}
+
 .btn-blue {
 	background-color: #05f;
 	padding: 15px 25px;

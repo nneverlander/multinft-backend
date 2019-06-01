@@ -2,26 +2,30 @@
 <html lang="en">
   <head>
     <!-- Global site tag (gtag.js) - Google Analytics -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-134134864-1"></script>
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-134134864-2"></script>
     <script>
-    window.dataLayer = window.dataLayer || [];
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
 
-    function gtag() { dataLayer.push(arguments); }
-    gtag('js', new Date());
-
-    gtag('config', 'UA-134134864-1');
+      gtag('config', 'UA-134134864-2');
     </script>
+
     <!-- Required meta tags -->
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 
     <!-- Bootstrap CSS -->
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css">
     <link rel="stylesheet" href="../css/index.css">
 
     <title>NFTs!!</title>
 
-    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+    <script src="https://code.jquery.com/jquery-3.4.1.min.js" integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo="
+        crossorigin="anonymous"></script>
+    <script src="https://www.gstatic.com/firebasejs/6.1.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/6.1.0/firebase-firestore.js"></script>
     <script src="../js/main.js"></script>
 
   </head>
@@ -35,13 +39,34 @@
       </button>
       <div class="collapse navbar-collapse" id="navbarNavAltMarkup">
         <div class="navbar-nav" style="padding-top: 10px;">
-          <a class="nav-item nav-link active" href="#">Tokens <span class="sr-only">(current)</span></a>
-          <a class="nav-item nav-link" href="#">Create</a>
-          <a class="nav-item nav-link" href="#">Send</a>
-          <a class="nav-item nav-link" href="#">Recent activity</a>
+          <a class="nav-item nav-link active" href="#" id="navBarTokens">Tokens <span class="sr-only">(current)</span></a>
+          <a class="nav-item nav-link" href="#" data-toggle="modal" data-target="#create">Create</a>
+          <a class="nav-item nav-link" href="#" data-toggle="modal" data-target="#send">Send</a>
+          <a class="nav-item nav-link" href="#" id="navBarActivity">Recent activity</a>
         </div>
       </div>
     </nav>
+
+    <div class="container" id="tokensRoot">
+
+    </div>
+
+    <div class="table-responsive" id="activityRoot">
+      <table class="table">
+        <thead>
+          <tr>
+            <th scope="col">#</th>
+            <th scope="col">Action</th>
+            <th scope="col">Status</th>
+            <th scope="col">Transaction</th>
+            <th scope="col">Timestamp</th>
+          </tr>
+        </thead>
+        <tbody id="activityBody">
+          
+        </tbody>
+      </table>
+    </div>
 
     <!-- Welcome Modal -->
     <div class="modal fade" id="welcome" tabindex="-1" role="dialog" aria-hidden="true">
@@ -52,7 +77,8 @@
                 <br>
                 <h5 style="font-weight: bolder;">Welcome to the token minting company</h5>
                 <br>
-                <button type="button" class="btn btn-primary btn-blue" data-toggle="modal" data-target="#create">Create an NFT</button>
+                <button type="button" class="btn btn-primary btn-blue" data-toggle="modal" 
+                        data-target="#create">Create an NFT</button>
                 <br><br>
                 <p>or fetch tokens</p>
                 <div class="input-group" style="margin: 0 8%">
@@ -86,11 +112,11 @@
                     <input type="text" class="form-control form-control-lg black-text" id="symbol" aria-describedby="symbolHelp" placeholder="Symbol">
                     <small id="symbolHelp" class="form-text text-muted">Ex: MyNFT</small>
                   </div>
-                  <div class="form-group">
+                  <div class="form-group" id="createOwnerDiv">
                     <input type="text" class="form-control form-control-lg black-text" id="owner" aria-describedby="ownerHelp" placeholder="Owner">
                     <small id="ownerHelp" class="form-text text-muted">Ex: Jesus <span class="form-text red-text">Don't forget the owner or you won't be able to access your NFTs</span></small>
                   </div>
-                  <button type="submit" class="btn btn-primary btn-blue">Create</button>
+                  <button type="submit" class="btn btn-primary btn-blue" id="createBtn">Create</button>
                 </form>
             </div>
           </div>
@@ -107,7 +133,7 @@
                 <form>
                   <div class="form-group">
                     <div class="text-center">
-                        <h3>Send token</h3>
+                        <h3>Send to</h3>
                     </div>
                     <br>
                     <input type="text" class="form-control form-control-lg black-text" id="transferTo" aria-describedby="transferHelp" 
@@ -124,7 +150,139 @@
       </div>
     </div>
 
-    <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+    <!-- Send Modal -->
+    <div class="modal fade" id="send" tabindex="-1" role="dialog" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+          <div class="modal-body">
+            <div class="padded">
+                <form>
+                  <div class="form-group">
+                    <div class="text-center">
+                        <h3>Send token</h3>
+                    </div>
+                    <br>
+                    <input type="text" class="form-control form-control-lg black-text" id="tokenId" aria-describedby="tokenIdHelp" placeholder="Token Id">
+                    <small id="tokenIdHelp" class="form-text text-muted">Ex: 340282366920938463463374607431768211496</small>
+                  </div>
+                  <div class="form-group">
+                    <input type="text" class="form-control form-control-lg black-text" id="sendTo" aria-describedby="transferHelp" 
+                            placeholder="Ethereum address">
+                    <small id="transferHelp" class="form-text text-muted">Ex: 0x90f8bf6a479f320ead074411a4b0e7944ea8c9c1
+                        <span class="form-text red-text" style="letter-spacing: 1px;">Be sure the address is correct. Once transferred, there is no going back</span>
+                    </small>
+                  </div>
+                  <button type="submit" class="btn btn-primary btn-blue">Send</button>
+                </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mint Modal -->
+    <div class="modal fade" id="mint" tabindex="-1" role="dialog" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+          <div class="modal-body">
+            <div class="padded">
+                <form>
+                  <div class="form-group">
+                    <div class="text-center">
+                        <h3>Mint tokens of this NFT</h3>
+                    </div>
+                    <br>
+                    <input type="text" class="form-control form-control-lg black-text" id="mintCount" aria-describedby="mintHelp" 
+                            placeholder="Count">
+                    <small id="mintHelp" class="form-text text-muted">Ex: 5
+                        <span class="form-text red-text" style="letter-spacing: 1px;">You can only mint a max of 20 at a time</span>
+                    </small>
+                  </div>
+                  <button type="submit" class="btn btn-primary btn-blue">Mint</button>
+                </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Set URI Modal -->
+    <div class="modal fade" id="setUri" tabindex="-1" role="dialog" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+          <div class="modal-body">
+            <div class="padded">
+                <form>
+                  <div class="form-group">
+                    <div class="text-center">
+                        <h3>Set an URI for this NFT</h3>
+                    </div>
+                    <br>
+                    <input type="text" class="form-control form-control-lg black-text" id="uriInput" aria-describedby="uriHelp" 
+                            placeholder="URI">
+                    <small id="uriHelp" class="form-text text-muted">Ex: https://google.com/image.svg
+                        <span class="form-text red-text" style="letter-spacing: 1px;">URI should point to an image</span>
+                    </small>
+                  </div>
+                  <button type="submit" class="btn btn-primary btn-blue">Set URI</button>
+                </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Claim Modal -->
+    <div class="modal fade" id="claim" tabindex="-1" role="dialog" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+          <div class="modal-body">
+            <div class="padded">
+                <form>
+                  <div class="form-group">
+                    <div class="text-center">
+                        <h3>Claim this NFT</h3>
+                    </div>
+                    <br>
+                    <span class="form-text black-text" style="letter-spacing: 1px;">For advanced users only. By claiming an NFT, you will be registered as its creator on Ethereum. This means that you no longer can use this site for managing it or for minting tokens of its type. However, you can manage it directly using MyEtherWallet or similar.</span>
+                    <br>
+                    <input type="text" class="form-control form-control-lg black-text" id="claimType" aria-describedby="claimHelp" 
+                            placeholder="Ethereum address">
+                    <small id="claimHelp" class="form-text text-muted">Ex: 0x90f8bf6a479f320ead074411a4b0e7944ea8c9c1
+                        <span class="form-text red-text" style="letter-spacing: 1px;">Be sure the address is correct. Once claimed, there is no going back</span>
+                    </small>
+                  </div>
+                  <div class="form-check">
+                      <input class="form-check-input" type="checkbox" value="" id="claimCheck" 
+                            onchange="document.getElementById('claimBtn').disabled = !this.checked;">
+                      <label class="form-check-label" for="claimCheck">I know what I am doing</label>
+                  </div>
+                  <br>
+                  <button id="claimBtn" type="submit" class="btn btn-primary btn-blue">Claim</button>
+                </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#mint">
+  Launch mint modal
+</button>
+
+<button type="button" class="btn btn-primary" data-toggle="modal" data-target="#transfer">
+  Launch transfer modal
+</button>
+
+<button type="button" class="btn btn-primary" data-toggle="modal" data-target="#claim">
+  Launch claim modal
+</button>
+
+<button type="button" class="btn btn-primary" data-toggle="modal" data-target="#setUri">
+  Launch set uri modal
+</button>
+    
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@8"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
   </body>

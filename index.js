@@ -217,8 +217,24 @@ function logResult(result) {
     console.log(JSON.stringify(logObject));
 }
 
+function updateActivity(activityId, receipt) {
+    let data = {
+        tx: receipt.transactionHash,
+        status: receipt.status
+    }
+    db.collection("activity" + rootRefSuffix).doc(activityId).set(data, {merge: true}).then(ref => {
+        console.log("Updated activity " + activityId);
+    }).catch(err => {
+        console.error("Activity " + activityId + " not updated", err.toString());
+    });
+}
+
 app.get("/", async function(req, res) {
     res.sendFile(path.join(__dirname, 'public/html/index.html'));
+});
+
+app.get("/activity", async function(req, res) {
+    res.sendFile(path.join(__dirname, 'public/html/activity.html'));
 });
 
 app.get("/slotsused", async function(req, res) {
@@ -236,14 +252,34 @@ app.get("/nonce", async function(req, res) {
 });
 
 app.get("/geturi", async function(req, res) {
-    let tokenUri = await multiNFTInstance.tokenURI(req.body.tokenId);
+    let tokenUri = await multiNFTInstance.tokenURI(req.query.tokenId);
     res.send(tokenUri);
+});
+
+app.get("/nftexists", async function(req, res) {
+    let nameExists = await multiNFTInstance.nameExists(req.query.name);
+    let symbolExists = await multiNFTInstance.symbolExists(req.query.symbol);
+    let resp = {
+        nameExists: nameExists,
+        symbolExists: symbolExists
+    }
+    res.send(resp);
 });
 
 app.post("/resetnonce", async function(req, res) {
     let accountNonce = await getAccountNonce();
     programNonce = accountNonce;
     res.status(200).send("Program nonce " + programNonce + " reset to accoun nonce " + accountNonce);
+});
+
+app.post("/addactivity", async function(req, res) {
+    db.collection("activity" + rootRefSuffix).add(req.body).then(ref => {
+        console.log("Added activity " + req.body.action + " for owner " + req.body.owner + " to firestore with id: ", ref.id);
+        res.status(200).send(ref.id);
+    }).catch(err => {
+        console.error("Activity " + req.body.action + " from " + req.body.owner + " not added", err.toString());
+        res.status(500).send("Activity not added");
+    });
 });
 
 app.post("/create", async function(req, res) {
@@ -296,6 +332,7 @@ app.post("/create", async function(req, res) {
                 db.collection("types" + rootRefSuffix).add(data).then(ref => {
                     console.log("Added type " + req.body.name + " to firestore with id: ", ref.id);
                 });
+                updateActivity(req.body.activityId, result.receipt);
             } else {
                 console.log("Type " + req.body.name + " not added to firestore");
             }
@@ -350,6 +387,7 @@ app.post("/mint", async function(req, res) {
                 db.collection("mints" + rootRefSuffix).add(data).then(ref => {
                     console.log("Added " + req.body.count + " mints of type " + req.body.name + " to firestore with id: ", ref.id);
                 });
+                updateActivity(req.body.activityId, result.receipt);
             } else {
                 console.error("Mints of type " + req.body.name + " not added to firestore");
             }
@@ -393,6 +431,7 @@ app.post("/transfer", async function(req, res) {
                 db.collection("transfers" + rootRefSuffix).add(data).then(ref => {
                     console.log("Added token transfer to firestore with id: ", ref.id);
                 });
+                updateActivity(req.body.activityId, result.receipt);
             } else {
                 console.log("Token transfer not added to firestore");
             }
@@ -445,6 +484,7 @@ app.post("/claim", async function(req, res) {
                 db.collection("claims" + rootRefSuffix).add(data).then(ref => {
                     console.log("Added claim to firestore with id: ", ref.id);
                 });
+                updateActivity(req.body.activityId, result.receipt);
             } else {
                 console.log("Claim not added to firestore");
             }
@@ -487,6 +527,7 @@ app.post("/seturi", async function(req, res) {
                 db.collection("uriChanges" + rootRefSuffix).add(data).then(ref => {
                     console.log("Added token uri change to firestore with id: ", ref.id);
                 });
+                updateActivity(req.body.activityId, result.receipt);
             } else {
                 console.log("Token uri change not added to firestore");
             }
