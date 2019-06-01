@@ -2,6 +2,7 @@ var db;
 var rootRefSuffix = "-ropsten";
 var owner = localStorage.getItem('owner');
 var etherscan = "https://ropsten.etherscan.io/tx/";
+var activityFetched = false;
 
 $(function(){
 
@@ -136,6 +137,9 @@ $(function(){
 		});
   	});
 
+  	$("#tokensRoot").click(function() {
+  		alert("gg");
+  	})
 });
 
 function showSuccessAlert() {
@@ -189,22 +193,32 @@ function fetchTypes() {
 			$('#create').modal('show');
 			return;
 		}
+		$("#tokensRootHeader").html("You have " + snap.docs.length + " types of NFTs");
 		for (var i = 0; i < snap.docs.length; i++) {
 			// add a row for every 3 types
-			if (i % 3 == 0) {
+			if (i % 2 == 0) {
 				var row = $("<div>", {class: "row", id: "tokensRootRow" + i});
 				$('#tokensRoot').append(row);
+				$('#tokensRoot').append("<br>");
 			}
-			var rowId = "#tokensRootRow" + Math.floor(i/3);
+			var rowId = "#tokensRootRow" + Math.floor(i/2);
 			var nft = snap.docs[i].data();
-			var col = $("<div>", {class: ".col-4"});
+			var col = $("<div>", {class: "col-6 nft-card"});
 			var card = $("<div>", {class: "card"});
-			var cardImg = $("<img>", {class: "card-img-top", src: nft.uri});
+			if (nft.uri) {
+				var cardImg = $("<img>", {class: "card-img-top", src: nft.uri});
+				card.append(cardImg);
+			}
 			var cardBody = $("<div>", {class: "card-body"});
 			var cardTitle = $("<h5>", {class: "card-title"});
 			cardTitle.append(nft.name);
 			cardBody.append(cardTitle);
-			card.append(cardImg);
+
+			var cardText = $("<p>", {class: "card-text", style: "color:gray"});
+			cardText.append(nft.symbol + "<br>");
+			cardText.append("Id: " + nft.type);
+			cardBody.append(cardText);
+			
 			card.append(cardBody);
 			col.append(card);
 			$(rowId).append(col);
@@ -215,10 +229,12 @@ function fetchTypes() {
 }
 
 function fetchActivity() {
+	if (activityFetched) {
+		return;
+	}
 	console.log("Fetching activity for " + owner);
-	//clear div
-	$('#activityBody').empty();
 	db.collection("activity" + rootRefSuffix).where("owner", "==", owner).orderBy('updatedAt', 'desc').limit(50).get().then(snap => {
+		activityFetched = true;
 		for (var i = 0; i < snap.docs.length; i++) {
 			var activity = snap.docs[i].data();
 			var tr = $("<tr>");

@@ -102,3 +102,11 @@ body {
 	height: 40px;
 	width: 130px;
 }
+
+.nft-card {
+
+}
+
+.nft-card:hover {
+	cursor: pointer;
+}
