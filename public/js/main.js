@@ -411,10 +411,17 @@ function fetchTypes() {
 			var nft = snap.docs[i].data();
 			var col = $("<div>", {class: "col-6"});
 			var card = $("<div>", {class: "card nft-card"});
+
+			let imgSrc;
 			if (nft.uri) {
-				var cardImg = $("<img>", {class: "card-img-top", src: nft.uri});
-				card.append(cardImg);
+				imgSrc = nft.uri;
+			} else {
+				let suffix = i % 7; // 7 because plaeholder images are numbered 0 to 6
+				imgSrc = "/img/ph" + suffix + ".png";
 			}
+			var cardImg = $("<img>", {class: "card-img-top", src: imgSrc});
+			card.append(cardImg);
+
 			var cardBody = $("<div>", {class: "card-body"});
 			var cardTitle = $("<h5>", {class: "card-title"});
 			cardTitle.append(nft.name);
@@ -500,10 +507,16 @@ function fetchTokens(type) {
 			var col = $("<div>", {class: "col-4"});
 			var card = $("<div>", {class: "card token-card"});
 
+			let imgSrc;
 			if (nft.uri) {
-				var cardImg = $("<img>", {class: "card-img-top", src: nft.uri});
-				card.append(cardImg);
+				imgSrc = nft.uri;
+			} else {
+				let suffix = i % 7; // 7 because plaeholder images are numbered 1 to 6
+				imgSrc = "/img/ph" + suffix + ".png";
 			}
+			var cardImg = $("<img>", {class: "card-img-top", src: imgSrc});
+			card.append(cardImg);
+
 			var cardBody = $("<div>", {class: "card-body"});
 
 			var cardText = $("<p>", {class: "card-text", style: "color:black"});
