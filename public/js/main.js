@@ -53,14 +53,45 @@ $(function(){
   });
 
   $("#welcomeFetch").click(function () {
-	  	$('#welcome').modal('hide');
 		owner = $("#welcomeOwner").val();
+  		if (!owner) {
+  			$("#welcomeOwner").tooltip('hide').attr('data-original-title', "Owner can't be empty").tooltip('show');
+  			disposeTooltip('#welcomeOwner');
+  			return;
+  		}
+  		$('#welcome').modal('hide');
+
 		localStorage.setItem('owner', owner);
 		$('#createOwnerDiv').hide();
 		fetchTypes();
   });
 
   $("#createBtn").click(function () {
+  		// input validation
+  		var name = $("#name").val();
+  		if (!name) {
+  			$("#name").tooltip('hide').attr('data-original-title', "Name can't be empty").tooltip('show');
+  			disposeTooltip('#name');
+  			return;
+  		}
+  		var symbol = $("#symbol").val();
+  		if (!symbol) {
+  			$("#symbol").tooltip('hide').attr('data-original-title', "Symbol can't be empty").tooltip('show');
+  			disposeTooltip('#symbol');
+  			return;
+  		}
+
+  		if (!owner) {
+	  		owner = $("#owner").val();
+	  		if (!owner) {
+	  			$("#owner").tooltip('hide').attr('data-original-title', "Owner can't be empty").tooltip('show');
+	  			disposeTooltip('#owner');
+	  			return;
+	  		}
+	  		localStorage.setItem("owner", owner);
+	  		console.log("New owner " + owner + " set");
+	  	}
+
 		var $this = $(this);
 	    var loadingText = '<i class="fa fa-spinner fa-spin"></i> Creating';
 	    if ($(this).html() !== loadingText) {
@@ -72,12 +103,6 @@ $(function(){
 	    }, 3000);
 
   		$('#welcome').modal('hide');
-
-	  	if (!owner) {
-	  		owner = $("#owner").val();
-	  		localStorage.setItem("owner", owner);
-	  		console.log("New owner " + owner + " set");
-	  	}
 
 	  	$('#createBtn').prop('disabled', true);
 
@@ -141,6 +166,24 @@ $(function(){
   	});
 
   	$("#mintBtn").click(function () {
+  		// input validation
+  		var count = $("#mintCount").val();
+  		if (!count) {
+  			$("#mintCount").tooltip('hide').attr('data-original-title', "Count can't be empty").tooltip('show');
+  			disposeTooltip('#mintCount');
+  			return;
+  		}
+  		if (count > 20) {
+  			$("#mintCount").tooltip('hide').attr('data-original-title', 'Count must be less than 20').tooltip('show');
+  			disposeTooltip('#mintCount');
+  			return;
+  		}
+  		if (!isInt(count)) {
+  			$("#mintCount").tooltip('hide').attr('data-original-title', 'Count must be an integer less than 20').tooltip('show');
+  			disposeTooltip('#mintCount');
+  			return;
+  		}
+
   		var $this = $(this);
 	    var loadingText = '<i class="fa fa-spinner fa-spin"></i> Minting';
 	    if ($(this).html() !== loadingText) {
@@ -182,6 +225,19 @@ $(function(){
     });
 
     $("#claimBtn").click(function () {
+    	// input validation
+  		var claimAddr = $("#claimAddr").val();
+  		if (!claimAddr) {
+  			$("#claimAddr").tooltip('hide').attr('data-original-title', "Address can't be empty").tooltip('show');
+  			disposeTooltip('#claimAddr');
+  			return;
+  		}
+  		if (claimAddr == '0' || claimAddr == '0x0') {
+  			$("#claimAddr").tooltip('hide').attr('data-original-title', "Address can't be zero").tooltip('show');
+  			disposeTooltip('#claimAddr');
+  			return;
+  		}
+
   		var $this = $(this);
 	    var loadingText = '<i class="fa fa-spinner fa-spin"></i> Claiming';
 	    if ($(this).html() !== loadingText) {
@@ -221,6 +277,14 @@ $(function(){
     });
 
     $("#setUriBtn").click(function () {
+    	// input validation
+  		var uriInput = $("#uriInput").val();
+  		if (!uriInput) {
+  			$("#uriInput").tooltip('hide').attr('data-original-title', "URI can't be empty").tooltip('show');
+  			disposeTooltip('#uriInput');
+  			return;
+  		}
+
   		var $this = $(this);
 	    var loadingText = '<i class="fa fa-spinner fa-spin"></i> Setting';
 	    if ($(this).html() !== loadingText) {
@@ -261,6 +325,19 @@ $(function(){
     });
 
     $("#transferBtn").click(function () {
+    	// input validation
+  		var transferTo = $("#transferTo").val();
+  		if (!transferTo) {
+  			$("#transferTo").tooltip('hide').attr('data-original-title', "Address can't be empty").tooltip('show');
+  			disposeTooltip('#transferTo');
+  			return;
+  		}
+  		if (transferTo == '0' || transferTo == '0x0') {
+  			$("#transferTo").tooltip('hide').attr('data-original-title', "Address can't be zero").tooltip('show');
+  			disposeTooltip('#transferTo');
+  			return;
+  		}
+
   		var $this = $(this);
 	    var loadingText = '<i class="fa fa-spinner fa-spin"></i> Sending';
 	    if ($(this).html() !== loadingText) {
@@ -300,6 +377,25 @@ $(function(){
     });
 
     $("#sendBtn").click(function () {
+    	// input validation
+  		var sendTo = $("#sendTo").val();
+  		if (!sendTo) {
+  			$("#sendTo").tooltip('hide').attr('data-original-title', "Address can't be empty").tooltip('show');
+  			disposeTooltip('#sendTo');
+  			return;
+  		}
+  		if (sendTo == '0' || sendTo == '0x0') {
+  			$("#sendTo").tooltip('hide').attr('data-original-title', "Address can't be zero").tooltip('show');
+  			disposeTooltip('#sendTo');
+  			return;
+  		}
+  		var tokenId = $("#tokenId").val();
+  		if (!tokenId) {
+  			$("#tokenId").tooltip('hide').attr('data-original-title', "Token Id can't be empty").tooltip('show');
+  			disposeTooltip('#tokenId');
+  			return;
+  		}
+
   		var $this = $(this);
 	    var loadingText = '<i class="fa fa-spinner fa-spin"></i> Sending';
 	    if ($(this).html() !== loadingText) {
@@ -339,6 +435,16 @@ $(function(){
     });
 
 });
+
+function disposeTooltip(elem) {
+	setTimeout(function() {
+		$(elem).tooltip('dispose');
+	}, 2000);
+}
+
+function isInt(value) {
+  return !isNaN(value) && (function(x) { return (x | 0) === x; })(parseFloat(value))
+}
 
 function showHome() {
 	$('#navBarActivity').removeClass('active');
