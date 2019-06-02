@@ -597,7 +597,7 @@ function fetchTypes() {
 }
 
 function fetchTokens(type) {
-	console.log("Fetching tokens for type" + type);
+	console.log("Fetching tokens for type " + type);
 	$('#tokensRoot').hide();
 	$('#tokensList').show();
 	$('#tokensBody').empty();
