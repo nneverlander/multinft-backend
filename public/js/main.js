@@ -399,17 +399,24 @@ function fetchTypes() {
 			$('#create').modal('show');
 			return;
 		}
-		$("#tokensRootHeader").html("You have " + snap.docs.length + " types of NFTs");
-		for (var i = 0; i < snap.docs.length; i++) {
-			// add a row for every 2 types
-			if (i % 2 == 0) {
-				var row = $("<div>", {class: "row", id: "tokensRootRow" + i/2});
+		let num = snap.docs.length;
+		let dispStr;
+		if (num == 1) {
+			dispStr = "You have 1 NFT type";
+		} else {
+			dispStr = "You have " + num + " NFT types";
+		}
+		$("#tokensRootHeader").html(dispStr);
+		for (var i = 0; i < num; i++) {
+			// add a row for every 3 types
+			if (i % 3 == 0) {
+				var row = $("<div>", {class: "row", id: "tokensRootRow" + i/3});
 				$('#tokensRoot').append(row);
 				$('#tokensRoot').append("<br>");
 			}
-			var rowId = "#tokensRootRow" + Math.floor(i/2);
+			var rowId = "#tokensRootRow" + Math.floor(i/3);
 			var nft = snap.docs[i].data();
-			var col = $("<div>", {class: "col-6"});
+			var col = $("<div>", {class: "col-4"});
 			var card = $("<div>", {class: "card nft-card"});
 
 			let imgSrc;
@@ -451,7 +458,7 @@ function fetchTypes() {
 			});
 
 			var uriLink = $("<a>", {class: "card-link", href:"#"});
-			uriLink.append("SetURI");
+			uriLink.append("Set image");
 			uriLink.click(function(e) {
 				e.stopPropagation();
 				// in the form of <name><br>Id: <number>
@@ -494,8 +501,15 @@ function fetchTokens(type) {
 			$("#tokensListHeader").html("You don't have any " + type + "s");
 			return;
 		}
-		$("#tokensListHeader").html("You have " + snap.docs.length + " " + type + "s");
-		for (var i = 0; i < snap.docs.length; i++) {
+		let num = snap.docs.length;
+		let dispStr;
+		if (num == 1) {
+			dispStr = "You have 1 " + type;
+		} else {
+			dispStr = "You have " + num + " " + type + "s";
+		}
+		$("#tokensListHeader").html(dispStr);
+		for (var i = 0; i < num; i++) {
 			var nft = snap.docs[i].data();
 			// add a row for every 3 types
 			if (i % 3 == 0) {
@@ -535,7 +549,7 @@ function fetchTokens(type) {
 			});
 
 			var uriLink = $("<a>", {class: "card-link", href:"#"});
-			uriLink.append("SetURI");
+			uriLink.append("Set Image");
 			uriLink.click(function(e) {
 				e.stopPropagation();
 				// in the form of Token Id: <number>
