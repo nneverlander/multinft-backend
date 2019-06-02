@@ -222,7 +222,7 @@ function updateActivity(activityId, receipt) {
         tx: receipt.transactionHash,
         status: receipt.status
     }
-    db.collection("activity" + rootRefSuffix).doc(activityId).set(data, {merge: true}).then(ref => {
+    db.collection("activity" + rootRefSuffix).doc(activityId).set(data, {merge: true}).then(res => {
         console.log("Updated activity " + activityId);
     }).catch(err => {
         console.error("Activity " + activityId + " not updated", err.toString());
@@ -329,8 +329,8 @@ app.post("/create", async function(req, res) {
                     owner: req.body.owner,
                     txn: result.receipt.transactionHash
                 }
-                db.collection("types" + rootRefSuffix).add(data).then(ref => {
-                    console.log("Added type " + req.body.name + " to firestore with id: ", ref.id);
+                db.collection("types" + rootRefSuffix).doc(req.body.name).set(data).then(res => {
+                    console.log("Added type " + req.body.name + " to firestore");
                 });
                 updateActivity(req.body.activityId, result.receipt);
             } else {
@@ -339,6 +339,7 @@ app.post("/create", async function(req, res) {
             res.send(result);
         }).catch(err => {
             console.error("Create type txn with nonce " + nonce + " failed", err.toString());
+            updateActivity(req.body.activityId, {transactionHash: null, status: false});
             handleTxnErr(err, "webCreateType", slot, nonce);
             res.status(500).send("Create type txn may have failed");
         });
@@ -388,12 +389,31 @@ app.post("/mint", async function(req, res) {
                     console.log("Added " + req.body.count + " mints of type " + req.body.name + " to firestore with id: ", ref.id);
                 });
                 updateActivity(req.body.activityId, result.receipt);
+
+                // add tokens to its own collection
+                let tokenIds = mintLog.args.tokenIds;
+                for (var i = 0; i < tokenIds.length; i++) {
+                    let tokenData = {
+                        name: req.body.name,
+                        type: mintLog.args.tokenType,
+                        uri: req.body.uri,
+                        owner: req.body.owner,
+                        tokenId: tokenIds[i]
+                    }
+                    let tokenId = tokenIds[i];
+                    db.collection("tokens" + rootRefSuffix).doc(tokenId).set(tokenData).then(res => {
+                        console.log("Added " + tokenId + " to firestore");
+                    }).catch(err => {
+                        console.error("Failed adding token " + tokenId + " to firstore", err.toString());
+                    });
+                }
             } else {
                 console.error("Mints of type " + req.body.name + " not added to firestore");
             }
             res.send(result);
         }).catch(err => {
             console.error("Mint txn with nonce " + nonce + " failed", err.toString());
+            updateActivity(req.body.activityId, {transactionHash: null, status: false});
             handleTxnErr(err, "webMint", slot, nonce);
             res.status(500).send("Mint may have failed");
         });
@@ -432,12 +452,20 @@ app.post("/transfer", async function(req, res) {
                     console.log("Added token transfer to firestore with id: ", ref.id);
                 });
                 updateActivity(req.body.activityId, result.receipt);
+
+                // remove token from firestore
+                db.collection("tokens" + rootRefSuffix).doc(req.body.tokenId).delete().then(res => {
+                    console.log("Token " + req.body.tokenId + " successfully deleted!");
+                }).catch(function(error) {
+                    console.error("Error deleting token " + req.body.tokenId, error);
+                });
             } else {
                 console.log("Token transfer not added to firestore");
             }
             res.send(result);
         }).catch(err => {
             console.error("Token transfer txn with nonce " + nonce + " failed", err.toString());
+            updateActivity(req.body.activityId, {transactionHash: null, status: false});
             handleTxnErr(err, "webTransfer", slot, nonce);
             res.status(500).send("Token transfer txn may have failed");
         });
@@ -485,12 +513,20 @@ app.post("/claim", async function(req, res) {
                     console.log("Added claim to firestore with id: ", ref.id);
                 });
                 updateActivity(req.body.activityId, result.receipt);
+
+                // remove type from firestore
+                db.collection("types" + rootRefSuffix).doc(req.body.name).delete().then(res => {
+                    console.log("Type " + req.body.name + " successfully deleted!");
+                }).catch(function(error) {
+                    console.error("Error deleting type " + req.body.name, error);
+                });
             } else {
                 console.log("Claim not added to firestore");
             }
             res.send(result);
         }).catch(err => {
             console.error("Claim txn with nonce " + nonce + " failed", err);
+            updateActivity(req.body.activityId, {transactionHash: null, status: false});
             handleTxnErr(err, "webClaimType", slot, nonce);
             res.status(500).send("Claim txn may have failed");
         });
@@ -522,18 +558,36 @@ app.post("/seturi", async function(req, res) {
                     tokenId: req.body.tokenId,
                     uri: req.body.uri,
                     owner: req.body.owner,
-                    txn: result.receipt.transactionHash
+                    txn: result.receipt.transactionHash,
+                    lastUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
                 }
                 db.collection("uriChanges" + rootRefSuffix).add(data).then(ref => {
                     console.log("Added token uri change to firestore with id: ", ref.id);
                 });
                 updateActivity(req.body.activityId, result.receipt);
+
+                //update token or type
+                if (req.body.type == "___token___") {
+                    db.collection("tokens" + rootRefSuffix).doc(req.body.tokenId).set({uri: req.body.uri}, {merge: true}).then(res => {
+                        console.log("Token uri changed to " + req.body.uri + " for token " + req.body.tokenId);
+                    }).catch(err => {
+                        console.error("Token uri change failed for token " + req.body.tokenId);
+                    });
+                } else {
+                    db.collection("types" + rootRefSuffix).doc(req.body.type).set({uri: req.body.uri}, {merge: true}).then(res => {
+                        console.log("Type uri changed to " + req.body.uri + " for type " + req.body.type);
+                    }).catch(err => {
+                        console.error("Type uri change failed for type " + req.body.type);
+                    });
+                }
+
             } else {
                 console.log("Token uri change not added to firestore");
             }
             res.send(result);
         }).catch(err => {
             console.error("Token uri change txn with nonce " + nonce + " failed", err.toString());
+            updateActivity(req.body.activityId, {transactionHash: null, status: false});
             handleTxnErr(err, "webSetUri", slot, nonce);
             res.status(500).send("Token uri change txn may have failed");
         });

@@ -33,7 +33,7 @@
   <body>
 
     <nav class="navbar navbar-expand-lg navbar-light">
-      <a class="navbar-brand" href="#"><img src="../img/logo.png" class="logo" /></a>
+      <a class="navbar-brand" href="#" id="logo"><img src="../img/logo.png" class="logo" /></a>
       <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNavAltMarkup" aria-controls="navbarNavAltMarkup" aria-expanded="false" aria-label="Toggle navigation">
         <span class="navbar-toggler-icon"></span>
       </button>
@@ -57,14 +57,26 @@
         </div>
     </div>
 
-    <div class="container">
+    <div class="container" id="tokensList">
+        <div class="row">
+            <div class="col-12">
+                <h3 id="tokensListHeader"></h3>
+                <br>
+            </div>
+        </div>
+        <div id="tokensBody">
+            
+        </div>
+    </div>
+
+    <div class="container" id="activityRoot">
         <div class="row">
             <div class="col-12">
                 <h3 id="tableHeader">Your recent activity</h3>
                 <br>
             </div>
         </div>
-        <div class="table-responsive" id="activityRoot">
+        <div class="table-responsive">
           <table class="table">
             <thead>
               <tr>
@@ -155,8 +167,9 @@
                     <small id="transferHelp" class="form-text text-muted">Ex: 0x90f8bf6a479f320ead074411a4b0e7944ea8c9c1
                         <span class="form-text red-text" style="letter-spacing: 1px;">Be sure the address is correct. Once transferred, there is no going back</span>
                     </small>
+                    <input type="hidden" class="form-control form-control-lg black-text" id="tokenIdTransfer">
                   </div>
-                  <button type="submit" class="btn btn-primary btn-blue">Send</button>
+                  <button type="submit" class="btn btn-primary btn-blue" id="transferBtn">Send</button>
                 </form>
             </div>
           </div>
@@ -186,7 +199,7 @@
                         <span class="form-text red-text" style="letter-spacing: 1px;">Be sure the address is correct. Once transferred, there is no going back</span>
                     </small>
                   </div>
-                  <button type="submit" class="btn btn-primary btn-blue">Send</button>
+                  <button type="submit" class="btn btn-primary btn-blue" id="sendBtn">Send</button>
                 </form>
             </div>
           </div>
@@ -211,8 +224,9 @@
                     <small id="mintHelp" class="form-text text-muted">Ex: 5
                         <span class="form-text red-text" style="letter-spacing: 1px;">You can only mint a max of 20 at a time</span>
                     </small>
+                    <input type="hidden" class="form-control form-control-lg black-text" id="mintName">
                   </div>
-                  <button type="submit" class="btn btn-primary btn-blue">Mint</button>
+                  <button type="submit" class="btn btn-primary btn-blue" id="mintBtn">Mint</button>
                 </form>
             </div>
           </div>
@@ -237,8 +251,10 @@
                     <small id="uriHelp" class="form-text text-muted">Ex: https://google.com/image.svg
                         <span class="form-text red-text" style="letter-spacing: 1px;">URI should point to an image</span>
                     </small>
+                    <input type="hidden" class="form-control form-control-lg black-text" id="tokenIdUri">
+                    <input type="hidden" class="form-control form-control-lg black-text" id="typeUri">
                   </div>
-                  <button type="submit" class="btn btn-primary btn-blue">Set URI</button>
+                  <button type="submit" class="btn btn-primary btn-blue" id="setUriBtn">Set URI</button>
                 </form>
             </div>
           </div>
@@ -260,11 +276,12 @@
                     <br>
                     <span class="form-text black-text" style="letter-spacing: 1px;">For advanced users only. By claiming an NFT, you will be registered as its creator on Ethereum. This means that you no longer can use this site for managing it or for minting tokens of its type. However, you can manage it directly using MyEtherWallet or similar.</span>
                     <br>
-                    <input type="text" class="form-control form-control-lg black-text" id="claimType" aria-describedby="claimHelp" 
+                    <input type="text" class="form-control form-control-lg black-text" id="claimAddr" aria-describedby="claimHelp" 
                             placeholder="Ethereum address">
                     <small id="claimHelp" class="form-text text-muted">Ex: 0x90f8bf6a479f320ead074411a4b0e7944ea8c9c1
                         <span class="form-text red-text" style="letter-spacing: 1px;">Be sure the address is correct. Once claimed, there is no going back</span>
                     </small>
+                    <input type="hidden" class="form-control form-control-lg black-text" id="claimName">
                   </div>
                   <div class="form-check">
                       <input class="form-check-input" type="checkbox" value="" id="claimCheck" 
@@ -279,22 +296,6 @@
         </div>
       </div>
     </div>
-
-    <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#mint">
-  Launch mint modal
-</button>
-
-<button type="button" class="btn btn-primary" data-toggle="modal" data-target="#transfer">
-  Launch transfer modal
-</button>
-
-<button type="button" class="btn btn-primary" data-toggle="modal" data-target="#claim">
-  Launch claim modal
-</button>
-
-<button type="button" class="btn btn-primary" data-toggle="modal" data-target="#setUri">
-  Launch set uri modal
-</button>
     
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@8"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
