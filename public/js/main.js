@@ -3,8 +3,32 @@ var rootRefSuffix = "-ropsten";
 var owner = localStorage.getItem('owner');
 var etherscan = "https://ropsten.etherscan.io/tx/";
 var activityFetched = false;
+let state = {view: "home"};
 
 $(function(){
+
+  window.history.replaceState(state, null, "");
+
+  window.onpopstate = function (event) {
+	  if (event.state) {
+	  	let view = event.state.view;
+	  	console.log("Rendering " + view);
+
+	  	switch (view) {
+		  case "home":
+		    showHome();
+		    break;
+		  case "activity":
+		    showActivity();
+		    break;
+		  case "tokens":
+		  	fetchTokens(event.state.type);
+		  	break;
+		  default:
+		    showHome();
+		}
+	  }
+  };
 
   var firebaseConfig = {
 	apiKey: "AIzaSyCljSAoHk-HJpamP9pMd5C5mYU97VgSzvM",
@@ -35,21 +59,25 @@ $(function(){
   	fetchTypes();
   }
 
-  $('#navBarTokens').on('click', function () {
+  $('#navBarTokens').on('click', function (e) {
+  	e.preventDefault();
+  	state.view = "home";
+  	window.history.pushState(state, null, "");
 	showHome();
   });
 
-  $('#logo').on('click', function () {
+  $('#logo').on('click', function (e) {
+  	e.preventDefault();
+  	state.view = "home";
+  	window.history.pushState(state, null, "");
 	showHome();
   });
 
-  $('#navBarActivity').on('click', function () {
-	$('#navBarTokens').removeClass('active');
-	$('#tokensRoot').hide();
-	$('#tokensList').hide();
-	$('#activityRoot').show();
-	fetchActivity();
-	$(this).addClass('active');
+  $('#navBarActivity').on('click', function (e) {
+  	e.preventDefault();
+  	state.view = "activity";
+  	window.history.pushState(state, null, "");
+	showActivity();
   });
 
   $("#welcomeFetch").click(function () {
@@ -454,6 +482,15 @@ function showHome() {
 	$(this).addClass('active');
 }
 
+function showActivity() {
+	$('#navBarTokens').removeClass('active');
+	$('#tokensRoot').hide();
+	$('#tokensList').hide();
+	$('#activityRoot').show();
+	fetchActivity();
+	$(this).addClass('active');
+}
+
 function showSuccessAlert() {
 	Swal.fire({
 	  type: 'success',
@@ -584,8 +621,11 @@ function fetchTypes() {
 
 			//attach click listener
 			card.click(function() {
-				let name = $(this).find("h5").html();
-				fetchTokens(name);
+				let type = $(this).find("h5").html();
+				state.view = "tokens";
+				state.type = type;
+  				window.history.pushState(state, null, "");
+				fetchTokens(type);
 			});
 
 			col.append(card);
@@ -598,6 +638,7 @@ function fetchTypes() {
 
 function fetchTokens(type) {
 	console.log("Fetching tokens for type " + type);
+	$('#activityRoot').hide();
 	$('#tokensRoot').hide();
 	$('#tokensList').show();
 	$('#tokensBody').empty();
