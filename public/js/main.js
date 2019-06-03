@@ -53,12 +53,13 @@ $(function(){
 
   if (!owner) {
   	console.log("No owner in local storage");
+  	$('#whoAmISpan').html('empty');
 	$('#createOwnerDiv').show();
 	$('#welcome').modal('show');
   } else {
   	fetchTypes();
+  	$('#whoAmISpan').html(owner);
   }
-  $('#whoAmISpan').html(owner);
 
   $('#navBarTokens').on('click', function (e) {
   	e.preventDefault();
@@ -573,7 +574,9 @@ function fetchTypes() {
 			$('#create').modal('show');
 			return;
 		}
-		$('#welcomeDiv').hide();
+
+		$("#welcomeDiv").hide();
+
 		let num = snap.docs.length;
 		let dispStr;
 		if (num == 1) {
