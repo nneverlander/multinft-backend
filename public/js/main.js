@@ -80,7 +80,8 @@ $(function(){
 	showActivity();
   });
 
-  $("#welcomeFetch").click(function () {
+  $("#welcomeFetch").click(function (e) {
+  		e.preventDefault();
 		owner = $("#welcomeOwner").val();
   		if (!owner) {
   			$("#welcomeOwner").tooltip('hide').attr('data-original-title', "Owner can't be empty").tooltip('show');
@@ -94,7 +95,8 @@ $(function(){
 		fetchTypes();
   });
 
-  $("#createBtn").click(function () {
+  $("#createBtn").click(function (e) {
+  		e.preventDefault();
   		// input validation
   		var name = $("#name").val();
   		if (!name) {
@@ -193,7 +195,8 @@ $(function(){
 		});
   	});
 
-  	$("#mintBtn").click(function () {
+  	$("#mintBtn").click(function (e) {
+  		e.preventDefault();
   		// input validation
   		var count = $("#mintCount").val();
   		if (!count) {
@@ -252,7 +255,8 @@ $(function(){
 		});
     });
 
-    $("#claimBtn").click(function () {
+    $("#claimBtn").click(function (e) {
+    	e.preventDefault();
     	// input validation
   		var claimAddr = $("#claimAddr").val();
   		if (!claimAddr) {
@@ -304,7 +308,8 @@ $(function(){
 		});
     });
 
-    $("#setUriBtn").click(function () {
+    $("#setUriBtn").click(function (e) {
+    	e.preventDefault();
     	// input validation
   		var uriInput = $("#uriInput").val();
   		if (!uriInput) {
@@ -352,7 +357,8 @@ $(function(){
 		});
     });
 
-    $("#transferBtn").click(function () {
+    $("#transferBtn").click(function (e) {
+    	e.preventDefault();
     	// input validation
   		var transferTo = $("#transferTo").val();
   		if (!transferTo) {
@@ -404,7 +410,8 @@ $(function(){
 		});
     });
 
-    $("#sendBtn").click(function () {
+    $("#sendBtn").click(function (e) {
+    	e.preventDefault();
     	// input validation
   		var sendTo = $("#sendTo").val();
   		if (!sendTo) {
