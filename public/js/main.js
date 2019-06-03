@@ -58,6 +58,7 @@ $(function(){
   } else {
   	fetchTypes();
   }
+  $('#whoAmISpan').html(owner);
 
   $('#navBarTokens').on('click', function (e) {
   	e.preventDefault();
@@ -91,8 +92,23 @@ $(function(){
   		$('#welcome').modal('hide');
 
 		localStorage.setItem('owner', owner);
+		$('#whoAmISpan').html(owner);
 		$('#createOwnerDiv').hide();
 		fetchTypes();
+  });
+
+  $("#changeOwnerBtn").click(function (e) {
+  		e.preventDefault();
+		owner = $("#changeOwner").val();
+  		if (!owner) {
+  			$("#changeOwner").tooltip('hide').attr('data-original-title', "You can't be empty").tooltip('show');
+  			disposeTooltip('#changeOwner');
+  			return;
+  		}
+  		$('#whoAmIModal').modal('hide');
+
+		localStorage.setItem('owner', owner);
+		location.reload();
   });
 
   $("#createBtn").click(function (e) {
@@ -546,9 +562,18 @@ function fetchTypes() {
 	//get types
 	db.collection("types" + rootRefSuffix).where('owner', '==', owner).get().then(snap => {
 		if (snap.empty) {
+			Swal.fire({
+			  type: 'warning',
+			  title: 'No NFTs found for ' + owner,
+			  customClass: {
+			  	confirmButton: 'swal-confirm-btn',
+			  	title: 'swal-title'
+			  }
+			});
 			$('#create').modal('show');
 			return;
 		}
+		$('#welcomeDiv').hide();
 		let num = snap.docs.length;
 		let dispStr;
 		if (num == 1) {

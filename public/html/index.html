@@ -43,12 +43,20 @@
           <a class="nav-item nav-link" href="#" data-toggle="modal" data-target="#create">Create</a>
           <a class="nav-item nav-link" href="#" data-toggle="modal" data-target="#send">Send</a>
           <a class="nav-item nav-link" href="#" id="navBarActivity">Recent activity</a>
+          <a class="nav-item nav-link" href="#" id="whoAmI" style="letter-spacing: 0.5px" data-toggle="modal" data-target="#whoAmIModal">Who am I</a>
         </div>
       </div>
     </nav>
     <br><br>
 
     <div class="container" id="tokensRoot">
+        <div class="center text-center" id="#welcomeDiv">
+            <img src="../img/welcome.png" style="height:70px; width:70px;">
+            <img src="../img/welcome2.png" style="height:70px; width:70px;">
+            <br><br>
+            <h4>Your NFTs will show here</h4>
+            <a href="#" class="card-link" data-toggle="modal" data-target="#welcome">Create</a>
+        </div>
         <div class="row">
             <div class="col-12">
                 <h3 id="tokensRootHeader"></h3>
@@ -94,6 +102,28 @@
         </div>
     </div>
 
+    <!-- Who am I Modal -->
+    <div class="modal fade" id="whoAmIModal" tabindex="-1" role="dialog" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+          <div class="modal-body text-center">
+            <div class="padded">
+                <br>
+                <h5 style="font-weight: bolder;">You are <span id="whoAmISpan"></span></h5>
+                <br>
+                <p>Change yourself here!</p>
+                <div class="input-group" style="margin: 0 8%">
+                    <input type="text" class="form-control-lg input-border" id="changeOwner" placeholder="">
+                    <div class="input-group-append">
+                        <button class="btn btn-primary btn-blue-sidepad" type="button" id="changeOwnerBtn">Change</button>
+                    </div>
+                </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Welcome Modal -->
     <div class="modal fade" id="welcome" tabindex="-1" role="dialog" aria-hidden="true">
       <div class="modal-dialog modal-dialog-centered" role="document">
@@ -103,12 +133,15 @@
                 <br>
                 <h5 style="font-weight: bolder;">Welcome to the NFT Company</h5>
                 <br>
+                <img src="../img/welcome.png" style="height:70px; width:70px;">
+                <img src="../img/welcome2.png" style="height:70px; width:70px;">
+                <br><br>
                 <button type="button" class="btn btn-primary btn-blue" data-toggle="modal" 
                         data-target="#create">Create an NFT</button>
                 <br><br>
                 <p>or fetch existing</p>
                 <div class="input-group" style="margin: 0 8%">
-                    <input type="text" class="form-control-lg input-border" id="welcomeOwner" placeholder=" owner">
+                    <input type="text" class="form-control-lg input-border" id="welcomeOwner" placeholder="Owner">
                     <div class="input-group-append">
                         <button class="btn btn-primary btn-blue-sidepad" type="button" id="welcomeFetch">Fetch</button>
                     </div>
