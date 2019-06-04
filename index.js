@@ -29,12 +29,11 @@ let gasLimit = process.env.gasLimit;
 let gasPrice = process.env.gasPriceWei;
 let txnTimeout = process.env.txnTimeout || 60; // in seconds
 
-// value can be 0 or 1 indicating whether the slot is free or not. 0 is free
-let slots = new Int8Array(50);
 // lowest nonce holds the nonce of the last confirmed txn for this address
 let programNonce = 0;
 // indicates the number of slots full
 let slotsUsed = 0;
+let maxSlots = 50; //based on max num of txns that eth clients queue per address (64)
 let highestNonceUsed = 0;
 
 let activeTxns = {};
@@ -133,7 +132,7 @@ async function readAddressData() {
 
 async function cleanUp() {
     let accountNonce = await getAccountNonce();
-    console.log("Cleanin up. Program nonce " + programNonce + " is being reset to account nonce " + accountNonce);
+    console.log("Cleaning up. Program nonce " + programNonce + " is being reset to account nonce " + accountNonce);
     programNonce = accountNonce;
 
     let txnProps = getTxnProps();
@@ -147,16 +146,6 @@ async function cleanUp() {
     });
 }
 
-function getSlot() {
-    for (let i = 0; i < slots.length; i++) {
-        if (!slots[i]) {
-            return i;
-        }
-    }
-    // this should never happen
-    return slots.length + 1;
-}
-
 function getTxnId(txn) {
     let txnId = txn + Math.random();
     activeTxns[txnId] = true;
@@ -164,18 +153,18 @@ function getTxnId(txn) {
     return txnId;
 }
 
-function sendDummyTxn(slot, nonce, txnId) {
+function sendDummyTxn(nonce, txnId) {
     // send a dummy txn to fill up the freed slot so that any txns with higher nonces can proceed
     // this condition means there is a "gap" in the array
     // without this gap being filled, txns with higher nonces will not complete
     let txnProps = getTxnProps();
     txnProps.nonce = nonce;
 
-    console.log("Sending dummy txn to have nonce gap filled with nonce " + nonce + " in slot " + slot + " when program nonce is " + programNonce);
+    console.log("Sending dummy txn to have nonce gap filled with nonce " + nonce + " when program nonce is " + programNonce);
 
     multiNFTInstance.sendTransaction(txnProps).then(result => {
         console.log("Dummy txn with nonce " + nonce + " succeeded when program nonce is " + programNonce);
-        updateNonceSlot(slot, "dummy");
+        updateNonce("dummy");
     }).catch(async err => {
         //reset program nonce to account nonce
         console.error("Dummy txn with nonce " + nonce + " failed when program nonce is " + programNonce + " with error ", err.toString());
@@ -183,63 +172,57 @@ function sendDummyTxn(slot, nonce, txnId) {
         console.log("Program nonce " + programNonce + " is being reset to account nonce " + accountNonce);
         programNonce = accountNonce;
 
-        console.log("Trying to clear slot " + slot + " for txn " + txnId);
         if (activeTxns[txnId] == true) {
-            slots[slot] = 0;
             slotsUsed--;
             delete activeTxns[txnId];
             numActive--;
-            console.log("Txn id " + txnId + " and slot " + slot + " are cleared");
+            console.log("Txn id " + txnId + " is cleared");
         } else {
-            console.log("Slot " + slot + " for txn " + txnId + " is already clear");
+            console.log(txnId + " is already clear");
         }
         console.log("num active " + numActive + " slots used " + slotsUsed);
     });
 }
 
-function prepareNonceSlot(txn) {
-    let nonce;
-    let slot;
-    if (slotsUsed > slots.length) {
+function prepareNonce(txn) {
+    let nonce = -1;
+    if (slotsUsed > maxSlots) {
         console.log("All slots for address " + fromAddress + " are currently full. Cannot execute " + txn + " at this moment. Try again later");
-        return;
+        return nonce;
     } else {
-        slot = getSlot();
         nonce = programNonce + slotsUsed;
-        slots[slot] = 1;
         slotsUsed++;
     }
-    console.log("For " + txn + ", using nonce " + nonce + ", from address: " + fromAddress + ", slot " + slot + ". Slots used so far: " + slotsUsed);
+    console.log("For " + txn + ", using nonce " + nonce + ", from address: " + fromAddress + ". Slots used so far: " + slotsUsed);
     if (nonce > highestNonceUsed) {
         highestNonceUsed = nonce;
         console.log("=============================================================Highest Nonce============================================================", highestNonceUsed);
     }
-    return [nonce, slot];
+    return nonce;
 }
 
-function updateNonceSlot(slot, txnId) {
+function updateNonce(txnId) {
     if (activeTxns[txnId] == true) {
         programNonce++;
-        slots[slot] = 0;
         slotsUsed--;
         delete activeTxns[txnId];
         numActive--;
-        console.log("Txn id " + txnId + " and slot " + slot + " are cleared");
+        console.log("Txn id " + txnId + " is cleared");
     } else {
-        console.log("Slot " + slot + " for txn " + txnId + " is already clear");
+        console.log("Txn " + txnId + " is already clear");
     }
     console.log("num active " + numActive + " slots used " + slotsUsed);
 }
 
-function handleTxnErr(err, txnId, slot, nonce) {
+function handleTxnErr(err, txnId, nonce) {
     if (err.receipt && err.receipt.transactionHash) {
         console.log("Error has txn hash so not sending dummy txn");
         logResult(err);
-        updateNonceSlot(slot, txnId);
+        updateNonce(txnId);
     } else {
         // since this txn failed, see if this slot needs to be filled
         // need to call this only when nonce is not mined
-        sendDummyTxn(slot, nonce, txnId);
+        sendDummyTxn(nonce, txnId);
     }
 }
 
@@ -286,11 +269,27 @@ function getTxnProps() {
     return txnProps;
 }
 
-function setTxnTimeout(slot, txnId, res) {
+function setTxnTimeout(txnId, res) {
     setTimeout(async () => {
         console.log("Time out occured for txn: " + txnId);
-        updateNonceSlot(slot, txnId);
+        if (activeTxns[txnId] == true) {
+            res.status(500).send("Cannot execute txn at this moment");
+        }
+        updateNonce(txnId);
     }, txnTimeout * 1000);
+}
+
+function prepareTxn(txnName, res) {
+    let nonce = prepareNonce(txnName);
+    if (nonce == -1) {
+        return null;
+    }
+    let txnId = getTxnId(txnName);
+    let txnProps = getTxnProps();
+    txnProps.nonce = nonce;
+    txnProps.txnId = txnId;
+    setTxnTimeout(txnId, res);
+    return txnProps;
 }
 
 app.get("/", async function(req, res) {
@@ -364,19 +363,19 @@ app.post("/create", async (req, res) => {
             res.send("Symbol already exists");
             return;
         }
-        let txnId = getTxnId("webCreateType");
-        let nonceSlot = prepareNonceSlot(txnId);
-        let nonce = nonceSlot[0];
-        let slot = nonceSlot[1];
 
-        let txnProps = getTxnProps();
-        txnProps.nonce = nonce;
-
-        setTxnTimeout(slot, txnId, res);
+        let txnProps = prepareTxn("webCreateType", res);
+        if (!txnProps) {
+            console.error("Cannot execute txn at this moment");
+            res.status(500).send("Cannot execute txn at this moment");
+            return;
+        }
+        let nonce = txnProps.nonce;
+        let txnId = txnProps.txnId;
 
         multiNFTInstance.webCreateType(req.body.name, req.body.symbol, req.body.uri, req.body.owner, txnProps).then(result => {
 
-            updateNonceSlot(slot, txnId);
+            updateNonce(txnId);
 
             // add result to firebase
             if (result && result.receipt && result.logs) {
@@ -408,7 +407,7 @@ app.post("/create", async (req, res) => {
         }).catch(err => {
             console.error("Create type txn with nonce " + nonce + " failed", err.toString());
             updateActivity(req.body.activityId, { transactionHash: null, status: false });
-            handleTxnErr(err, txnId, slot, nonce);
+            handleTxnErr(err, txnId, nonce);
             res.status(500).send("Create type txn may have failed: " + err.toString());
         });
     } catch (err) {
@@ -418,19 +417,18 @@ app.post("/create", async (req, res) => {
 
 app.post("/mint", async (req, res) => {
     try {
-        let txnId = getTxnId("webMint");
-        let nonceSlot = prepareNonceSlot(txnId);
-        let nonce = nonceSlot[0];
-        let slot = nonceSlot[1];
-
-        let txnProps = getTxnProps();
-        txnProps.nonce = nonce;
-
-        setTxnTimeout(slot, txnId, res);
+        let txnProps = prepareTxn("webCreateType", res);
+        if (!txnProps) {
+            console.error("Cannot execute txn at this moment");
+            res.status(500).send("Cannot execute txn at this moment");
+            return;
+        }
+        let nonce = txnProps.nonce;
+        let txnId = txnProps.txnId;
 
         multiNFTInstance.webMint(req.body.name, req.body.uri, req.body.count, req.body.owner, txnProps).then(result => {
 
-            updateNonceSlot(slot, txnId);
+            updateNonce(txnId);
 
             // add result to firebase
             if (result && result.receipt && result.logs) {
@@ -481,7 +479,7 @@ app.post("/mint", async (req, res) => {
         }).catch(err => {
             console.error("Mint txn with nonce " + nonce + " failed", err.toString());
             updateActivity(req.body.activityId, { transactionHash: null, status: false });
-            handleTxnErr(err, txnId, slot, nonce);
+            handleTxnErr(err, txnId, nonce);
             res.status(500).send("Mint may have failed: " + err.toString());
         });
     } catch (err) {
@@ -491,19 +489,18 @@ app.post("/mint", async (req, res) => {
 
 app.post("/transfer", async (req, res) => {
     try {
-        let txnId = getTxnId("webTransfer");
-        let nonceSlot = prepareNonceSlot(txnId);
-        let nonce = nonceSlot[0];
-        let slot = nonceSlot[1];
-
-        let txnProps = getTxnProps();
-        txnProps.nonce = nonce;
-
-        setTxnTimeout(slot, txnId, res);
+        let txnProps = prepareTxn("webCreateType", res);
+        if (!txnProps) {
+            console.error("Cannot execute txn at this moment");
+            res.status(500).send("Cannot execute txn at this moment");
+            return;
+        }
+        let nonce = txnProps.nonce;
+        let txnId = txnProps.txnId;
 
         multiNFTInstance.webTransfer(req.body.to, req.body.tokenId, req.body.owner, txnProps).then(result => {
 
-            updateNonceSlot(slot, txnId);
+            updateNonce(txnId);
 
             // add result to firebase
             if (result && result.receipt) {
@@ -532,7 +529,7 @@ app.post("/transfer", async (req, res) => {
         }).catch(err => {
             console.error("Token transfer txn with nonce " + nonce + " failed", err.toString());
             updateActivity(req.body.activityId, { transactionHash: null, status: false });
-            handleTxnErr(err, txnId, slot, nonce);
+            handleTxnErr(err, txnId, nonce);
             res.status(500).send("Token transfer txn may have failed: " + err.toString());
         });
     } catch (err) {
@@ -542,19 +539,18 @@ app.post("/transfer", async (req, res) => {
 
 app.post("/claim", async (req, res) => {
     try {
-        let txnId = getTxnId("webClaimType");
-        let nonceSlot = prepareNonceSlot(txnId);
-        let nonce = nonceSlot[0];
-        let slot = nonceSlot[1];
-
-        let txnProps = getTxnProps();
-        txnProps.nonce = nonce;
-
-        setTxnTimeout(slot, txnId, res);
+        let txnProps = prepareTxn("webCreateType", res);
+        if (!txnProps) {
+            console.error("Cannot execute txn at this moment");
+            res.status(500).send("Cannot execute txn at this moment");
+            return;
+        }
+        let nonce = txnProps.nonce;
+        let txnId = txnProps.txnId;
 
         multiNFTInstance.webClaimType(req.body.name, req.body.oldOwner, req.body.newOwner, txnProps).then(result => {
 
-            updateNonceSlot(slot, txnId);
+            updateNonce(txnId);
 
             // add result to firebase
             if (result && result.receipt && result.logs) {
@@ -592,7 +588,7 @@ app.post("/claim", async (req, res) => {
         }).catch(err => {
             console.error("Claim txn with nonce " + nonce + " failed", err);
             updateActivity(req.body.activityId, { transactionHash: null, status: false });
-            handleTxnErr(err, txnId, slot, nonce);
+            handleTxnErr(err, txnId, nonce);
             res.status(500).send("Claim txn may have failed: " + err.toString());
         });
     } catch (err) {
@@ -602,19 +598,18 @@ app.post("/claim", async (req, res) => {
 
 app.post("/seturi", async (req, res) => {
     try {
-        let txnId = getTxnId("webSetUri");
-        let nonceSlot = prepareNonceSlot(txnId);
-        let nonce = nonceSlot[0];
-        let slot = nonceSlot[1];
 
-        let txnProps = getTxnProps();
-        txnProps.nonce = nonce;
-
-        setTxnTimeout(slot, txnId, res);
+        let txnProps = prepareTxn("webSetUri", res);
+        if (!txnProps) {
+            console.error("Cannot execute txn at this moment");
+            res.status(500).send("Cannot execute txn at this moment");
+        }
+        let nonce = txnProps.nonce;
+        let txnId = txnProps.txnId;
 
         multiNFTInstance.webSetTokenURI(req.body.tokenId, req.body.uri, req.body.owner, txnProps).then(result => {
 
-            updateNonceSlot(slot, txnId);
+            updateNonce(txnId);
 
             if (result && result.receipt) {
                 logResult(result);
@@ -652,7 +647,7 @@ app.post("/seturi", async (req, res) => {
         }).catch(err => {
             console.error("Token uri change txn with nonce " + nonce + " failed", err.toString());
             updateActivity(req.body.activityId, { transactionHash: null, status: false });
-            handleTxnErr(err, txnId, slot, nonce);
+            handleTxnErr(err, txnId, nonce);
             res.status(500).send("Token uri change txn may have failed: " + err.toString());
         });
     } catch (err) {
