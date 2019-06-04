@@ -1,7 +1,7 @@
 var db;
 var rootRefSuffix = "-ropsten";
 var owner = localStorage.getItem('owner');
-var etherscan = "https://ropsten.etherscan.io/tx/";
+var explorer = "https://ropsten.etherscan.io/tx/";
 var activityFetched = false;
 let state = {view: "home"};
 
@@ -42,6 +42,9 @@ $(function(){
   // Initialize Firebase
   firebase.initializeApp(firebaseConfig);
   db = firebase.firestore();
+
+  // whether rospten, mainnet, matic or other
+  initNetwork();
 
   // claim button disabled by default
   $('#claimBtn').prop('disabled', true);
@@ -488,6 +491,27 @@ $(function(){
 
 });
 
+function initNetwork() {
+	db.collection("config").doc("current").get(currentConfig => {
+        let version = currentConfig.data().version;
+
+        db.collection("config").doc(version).get(config => {
+	        let configData = config.data();
+	        if (!rootRefSuffix || rootRefSuffix != configData.rootRefSuffix) {
+	            rootRefSuffix = configData.rootRefSuffix;
+	        }
+	        if (!explorer || explorer != configData.explorer) {
+	            explorer = configData.explorer;
+	        }
+	        console.log("Config read, using " + rootRefSuffix + " and " + explorer);
+	    }, err => {
+	        console.error(`Encountered error: ${err} while readingconfig`);
+	    });
+    }, err => {
+        console.error(`Encountered error: ${err} while reading current config version`);
+    });
+}
+
 function disposeTooltip(elem) {
 	setTimeout(function() {
 		$(elem).tooltip('dispose');
@@ -780,7 +804,7 @@ function fetchActivity() {
 
 			var txStr;
 			if (activity.tx) {
-				txStr = "<td><a target='_blank' href=" + etherscan + activity.tx + ">" + activity.tx + "</a></td>"
+				txStr = "<td><a target='_blank' href=" + explorer + activity.tx + ">" + activity.tx + "</a></td>"
 			} else {
 				txStr = "<td>N/A</td>"
 			}
