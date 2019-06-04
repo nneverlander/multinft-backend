@@ -4,3 +4,6 @@ handlers:
   script: auto
   secure: always
   redirect_http_response_code: 301
+automatic_scaling:
+  max_instances: 10
+  min_instances: 1

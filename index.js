@@ -109,8 +109,6 @@ function readNewConfig(version) {
             txnTimeout = configData.txnTimeout;
         }
         if (!fromAddress || fromAddress != configData.fromAddress) {
-            console.log("Account changed to " + configData.fromAddress);
-            fromAddress = configData.fromAddress;
             await readAddressData();
         }
         // provider check should always be the last we check for since it involves initializing contract
@@ -125,8 +123,12 @@ function readNewConfig(version) {
 }
 
 async function readAddressData() {
-    let account = await db.collection("accounts" + rootRefSuffix).doc(fromAddress).get();
-    privKey = account.data().privKey;
+    let account = await db.collection("accounts" + rootRefSuffix).orderBy("lastUpdatedAt", "asc").limit(1).get();
+    fromAddress = account.docs[0].id;
+    console.log("Using address", fromAddress);
+    // update last used to now
+    await db.collection("accounts" + rootRefSuffix).doc(fromAddress).set({lastUpdatedAt : firebase.firestore.FieldValue.serverTimestamp()}, {merge: true});
+    privKey = account.docs[0].data().privKey;
     initContract();
 }
 
