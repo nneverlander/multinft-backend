@@ -408,7 +408,7 @@ app.post("/create", async (req, res) => {
             console.error("Create type txn with nonce " + nonce + " failed", err.toString());
             updateActivity(req.body.activityId, { transactionHash: null, status: false });
             handleTxnErr(err, txnId, nonce);
-            res.status(500).send("Create type txn may have failed: " + err.toString());
+            res.status(500).send("Create type txn with nonce " + nonce + " may have failed: " + err.toString());
         });
     } catch (err) {
         console.error("Create type " + req.body.name + " failed", err.toString());
@@ -480,7 +480,7 @@ app.post("/mint", async (req, res) => {
             console.error("Mint txn with nonce " + nonce + " failed", err.toString());
             updateActivity(req.body.activityId, { transactionHash: null, status: false });
             handleTxnErr(err, txnId, nonce);
-            res.status(500).send("Mint may have failed: " + err.toString());
+            res.status(500).send("Mint with nonce " + nonce + " may have failed: " + err.toString());
         });
     } catch (err) {
         console.error("Minting of " + req.body.name + " failed", err.toString());
@@ -530,7 +530,7 @@ app.post("/transfer", async (req, res) => {
             console.error("Token transfer txn with nonce " + nonce + " failed", err.toString());
             updateActivity(req.body.activityId, { transactionHash: null, status: false });
             handleTxnErr(err, txnId, nonce);
-            res.status(500).send("Token transfer txn may have failed: " + err.toString());
+            res.status(500).send("Token transfer txn with nonce " + nonce + " may have failed: " + err.toString());
         });
     } catch (err) {
         console.error("Transfer failed", err.toString());
@@ -589,7 +589,7 @@ app.post("/claim", async (req, res) => {
             console.error("Claim txn with nonce " + nonce + " failed", err);
             updateActivity(req.body.activityId, { transactionHash: null, status: false });
             handleTxnErr(err, txnId, nonce);
-            res.status(500).send("Claim txn may have failed: " + err.toString());
+            res.status(500).send("Claim txn with nonce " + nonce + " may have failed: " + err.toString());
         });
     } catch (err) {
         console.error('Claim failed', err.toString());
@@ -648,7 +648,7 @@ app.post("/seturi", async (req, res) => {
             console.error("Token uri change txn with nonce " + nonce + " failed", err.toString());
             updateActivity(req.body.activityId, { transactionHash: null, status: false });
             handleTxnErr(err, txnId, nonce);
-            res.status(500).send("Token uri change txn may have failed: " + err.toString());
+            res.status(500).send("Token uri change txn with nonce " + nonce + " may have failed: " + err.toString());
         });
     } catch (err) {
         console.error('Token uri change failed', err.toString());
