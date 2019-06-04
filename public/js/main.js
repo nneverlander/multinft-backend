@@ -2,7 +2,6 @@ var db;
 var rootRefSuffix = "-ropsten";
 var owner = localStorage.getItem("owner");
 var explorer = "https://ropsten.etherscan.io/tx/";
-var activityFetched = false;
 let state = { view: "home" };
 
 $(async function() {
@@ -897,9 +896,7 @@ function fetchTokens(type) {
 }
 
 function fetchActivity() {
-    if (activityFetched) {
-        return;
-    }
+    $('#activityBody').empty();
     console.log("Fetching activity for " + owner);
     db.collection("activity" + rootRefSuffix)
         .where("owner", "==", owner)
@@ -907,7 +904,6 @@ function fetchActivity() {
         .limit(50)
         .get()
         .then(snap => {
-            activityFetched = true;
             for (var i = 0; i < snap.docs.length; i++) {
                 var activity = snap.docs[i].data();
                 var tr = $("<tr>");
