@@ -603,6 +603,7 @@ function showHome() {
     $("#activityRoot").hide();
     $("#tokensList").hide();
     $("#tokensRoot").show();
+    fetchTypes();
     $(this).addClass("active");
 }
 
@@ -660,6 +661,7 @@ function sendGetReq(url, data, async, cb) {
 
 function fetchTypes() {
     console.log("Fetching types for " + owner);
+    $("#tokensRootBody").empty();
     //get types
     db.collection("types" + rootRefSuffix)
         .where("owner", "==", owner)
@@ -695,8 +697,8 @@ function fetchTypes() {
                         class: "row",
                         id: "tokensRootRow" + i / 3
                     });
-                    $("#tokensRoot").append(row);
-                    $("#tokensRoot").append("<br>");
+                    $("#tokensRootBody").append(row);
+                    $("#tokensRootBody").append("<br>");
                 }
                 var rowId = "#tokensRootRow" + Math.floor(i / 3);
                 var nft = snap.docs[i].data();
