@@ -491,6 +491,15 @@ app.post("/mint", async (req, res) => {
 
 app.post("/transfer", async (req, res) => {
     try {
+        // first check if the token is a type. If it is reject as types can only be claimed first
+        let tokenType = await db.collection("types" + rootRefSuffix).where("type", "==", req.body.tokenId).get();
+        if (tokenType.docs.length > 0) {
+            console.error("Cannot transfer type " + req.body.tokenId  + ", it has to be claimed");
+            updateActivity(req.body.activityId, { transactionHash: null, status: false });
+            res.status(500).send("Cannot transfer type " + req.body.tokenId  + ", it has to be claimed");
+            return;
+        }
+
         let txnProps = prepareTxn("webCreateType", res);
         if (!txnProps) {
             console.error("Cannot execute txn at this moment");

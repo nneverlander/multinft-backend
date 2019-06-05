@@ -713,8 +713,19 @@ function fetchTypes() {
                     imgSrc = "/img/ph" + suffix + ".png";
                 }
                 var cardImg = $("<img>", {
-                    class: "card-img-top",
+                    class: "card-img-top nft-card-img",
                     src: imgSrc
+                });
+                //attach click listener to image
+                cardImg.click(function() {
+                    let type = $(this)
+                        .siblings("div")
+                        .children("h5:first")
+                        .html();
+                    state.view = "tokens";
+                    state.type = type;
+                    window.history.pushState(state, null, "");
+                    fetchTokens(type);
                 });
                 card.append(cardImg);
 
@@ -775,17 +786,6 @@ function fetchTypes() {
                 cardBody.append(uriLink);
 
                 card.append(cardBody);
-
-                //attach click listener
-                card.click(function() {
-                    let type = $(this)
-                        .find("h5")
-                        .html();
-                    state.view = "tokens";
-                    state.type = type;
-                    window.history.pushState(state, null, "");
-                    fetchTokens(type);
-                });
 
                 col.append(card);
                 $(rowId).append(col);
