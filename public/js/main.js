@@ -152,6 +152,7 @@ $(async function() {
                 return;
             }
             localStorage.setItem("owner", owner);
+            $("#whoAmISpan").html(owner);
             console.log("New owner " + owner + " set");
         }
 
