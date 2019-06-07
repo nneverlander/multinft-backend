@@ -745,6 +745,7 @@ function fetchTypes() {
                 var mintLink = $("<a>", { class: "card-link", href: "#" });
                 mintLink.append("Mint");
                 mintLink.click(function(e) {
+                	e.preventDefault();
                     e.stopPropagation();
                     let name = $(this)
                         .siblings("h5")
@@ -756,6 +757,7 @@ function fetchTypes() {
                 var claimLink = $("<a>", { class: "card-link", href: "#" });
                 claimLink.append("Claim");
                 claimLink.click(function(e) {
+                	e.preventDefault();
                     e.stopPropagation();
                     let name = $(this)
                         .siblings("h5")
@@ -767,6 +769,7 @@ function fetchTypes() {
                 var uriLink = $("<a>", { class: "card-link", href: "#" });
                 uriLink.append("Set image");
                 uriLink.click(function(e) {
+                	e.preventDefault();
                     e.stopPropagation();
                     // in the form of <name><br>Id: <number>
                     let tokenId = $(this)
@@ -860,6 +863,7 @@ function fetchTokens(type) {
                 var sendLink = $("<a>", { class: "card-link", href: "#" });
                 sendLink.append("Send");
                 sendLink.click(function(e) {
+                	e.preventDefault();
                     e.stopPropagation();
                     // in the form of Token Id: <number>
                     let tokenId = $(this)
@@ -873,6 +877,7 @@ function fetchTokens(type) {
                 var uriLink = $("<a>", { class: "card-link", href: "#" });
                 uriLink.append("Set Image");
                 uriLink.click(function(e) {
+                	e.preventDefault();
                     e.stopPropagation();
                     // in the form of Token Id: <number>
                     let tokenId = $(this)
